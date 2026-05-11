@@ -51,20 +51,20 @@ VS CMake presets: see `CMakePresets.json` (`windows-msvc-debug`, `windows-msvc-r
    ```bash
    bash tools/scripts/build_aero_us_elf.sh
    ```
-   Default **`AERO_LINK_MODE=bootstrap`**: one `.text` built from **`split/us/asm/bootstrap/aero_us_rom_text.s`** (`.incbin` of `roms/afa.n64.us.z64` from `0x1000`, length `0x7FF000`) plus splat’s **`header.s`** and IPL3 blob, linked with **`config/ld/aero.us.bootstrap.ld`**. This avoids **`R_MIPS_26` truncation** when splat’s per-TU `jal` targets addresses that have no exported label (e.g. `jal func_802000DC` with no `func_802000DC` symbol). For iterative disassembly, use **`AERO_LINK_MODE=splatasm`** (same script) once asm boundaries match real functions; optionally **`AERO_SPLATASM_PREP=1`** to re-run the Track B Python helpers before assembly (see **`Docs/Debugging.md`**).
+   Default **`AERO_LINK_MODE=bootstrap`**: one `.text` built from **`split/us/asm/bootstrap/aero_us_rom_text.s`** (`.incbin` of `roms/afa.n64.us.z64` from `0x1000`, length `0x7FF000`) plus splat’s **`header.s`** and IPL3 blob, linked with **`config/ld/aero.us.bootstrap.ld`** → **`build/us/aero.us.elf`**. This avoids **`R_MIPS_26` truncation** when splat’s per-TU `jal` targets addresses that have no exported label (e.g. `jal func_802000DC` with no `func_802000DC` symbol). For iterative disassembly, use **`AERO_LINK_MODE=splatasm`** (same script) once asm boundaries match real functions; optionally **`AERO_SPLATASM_PREP=1`** to re-run the Track B Python helpers before assembly (see **`Docs/Debugging.md`**). Splatasm mode writes **`build/us/aero.us.splatasm.elf`** so the bootstrap ELF is not overwritten; **`config/aero.us.toml`** `elf_path` targets the splatasm artifact for N64Recomp.
    Per-splat TU assemble still uses **`-I config/asm_include`** for `macro.inc` (project-local).
 3. **N64Recomp** — `tools/N64Recomp.exe config/aero.us.toml` (paths relative to the TOML’s directory). The **bootstrap** ELF finds the entrypoint after a **local** `elf.cpp` uint32 comparison patch in `tools/source/N64Recomp` (see `tools/PINNED_VERSIONS.txt`); full recompilation still needs a **properly symbolized** ELF from splat/asm + jump tables, not only the raw `.incbin` blob.
 
 ### Parallel priorities (do both; order is flexible)
 
-These two goals overlap but do not block each other until **`RecompiledFuncs/`** contains a **complete, compiling** N64Recomp emit (today’s stub **`funcs_0.c`** is intentionally incomplete — do not wire it into **`CMakeLists.txt`** until a real run fills **`recomp_entrypoint`** and friends).
+These two goals overlap but do not block each other until **`RecompiledFuncs/`** contains a **compiling** N64Recomp emit. Once **`tools/N64Recomp.exe`** succeeds against **`build/us/aero.us.splatasm.elf`** (or another correct ELF), root **`CMakeLists.txt`** links the **`RecompiledFuncs`** static library per Banjo **`add_library(RecompiledFuncs STATIC)`** in **`Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt`**, using **`tools/source/N64Recomp/include`** for **`recomp.h`** and **`include/librecomp/sections.h`** for generated **`recomp_overlays.inl`** until **`lib/N64ModernRuntime`** is vendored.
 
-**Track A — N64Recomp clean on bootstrap ELF**
+**Track A — N64Recomp on splatasm ELF (canonical `elf_path`)**
 
-1. WSL: **`bash tools/scripts/build_aero_us_elf.sh`** (default **`AERO_LINK_MODE=bootstrap`**) → **`build/us/aero.us.elf`**.
-2. Repo root (Windows): **`tools\N64Recomp.exe config\aero.us.toml`**.
+1. WSL: **`bash tools/scripts/build_aero_us_elf.sh`** (default bootstrap → **`build/us/aero.us.elf`**) and **`AERO_LINK_MODE=splatasm bash tools/scripts/build_aero_us_elf.sh`** → **`build/us/aero.us.splatasm.elf`** (see **`Docs/Debugging.md`** if the Windows CLI faults on the splatasm ELF).
+2. Repo root (Windows): **`tools\N64Recomp.exe config\aero.us.toml`**. To refresh stubbed **`RecompiledFuncs/`** for CMake when that run faults, use **`tools\N64Recomp.exe config\aero.us.regen.toml`**.
 3. Iterate **`config/aero.us.toml`**: **`unmatched_functions`**, **`function_sizes`**, **`manual_funcs`**, etc., using N64Recomp stderr + Ghidra (`Docs/Debugging.md`). Re-run until generation completes or remaining failures are explicitly listed and deferred.
-4. When **`RecompiledFuncs/*.c`** is real and complete, add those sources (and **`tools/source/N64Recomp/include`** / runtime from **`lib/`** per upstream) to **`CMakeLists.txt`** and compile **`Aero64Recompiled`** against them (Phase 4).
+4. **`RecompiledFuncs/*.c`** and **`lookup.cpp`** are wired in root **`CMakeLists.txt`** (Phase 4); regenerate after **`N64Recomp.exe`** when **`elf_path`** or splat layout changes.
 
 **Track B — Host executable + engine (`lib/`) toward a playable window**
 

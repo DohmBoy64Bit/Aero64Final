@@ -1,0 +1,16 @@
+# Regenerate RecompiledFuncs when Windows N64Recomp crashes on splatasm.elf (Docs/Debugging.md).
+# Run from config/: N64Recomp.exe aero.us.regen.toml
+# Canonical config for real recomp: aero.us.toml (splatasm.elf, no stubs).
+
+[input]
+entrypoint = 0x80200050
+output_func_path = "../RecompiledFuncs"
+rom_file_path = "../roms/afa.n64.us.z64"
+elf_path = "../build/us/aero.us.elf"
+bss_section_suffix = "_bss"
+function_sizes = [
+    { name = "recomp_entrypoint", size = 0x7FEFB0 },
+]
+
+[patches]
+stubs = ["recomp_entrypoint"]

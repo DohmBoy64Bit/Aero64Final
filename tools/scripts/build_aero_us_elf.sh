@@ -16,6 +16,7 @@
 #     split/us/asm/bootstrap/aero_us_rom_text.s). Produces a loadable ELF when splat’s per-file
 #     asm has jal targets without labels (R_MIPS_26 truncation with split TU objects).
 #   AERO_LINK_MODE=splatasm — assemble all split/us/asm/game/rom_*.s and partial-link with ld -r;
+#     Writes build/us/aero.us.splatasm.elf (bootstrap stays build/us/aero.us.elf).
 #     R_MIPS_26 "truncated" => add glabel func_* at target VMA (see Docs/Debugging.md dual track).
 #     After failure: python tools/scripts/splatasm_list_missing_jal.py
 #
@@ -60,7 +61,13 @@ ROM="${ROM:-roms/afa.n64.us.z64}"
 MODE="${AERO_LINK_MODE:-bootstrap}"
 INC="-I${ROOT}/config/asm_include"
 ASFLAGS=( -march=vr4300 -mabi=32 -EB -O1 "$INC" )
-OUT_ELF="build/us/aero.us.elf"
+# Bootstrap and splatasm use different outputs so N64Recomp can point at the splat-linked ELF
+# without overwriting the bootstrap artifact (Docs/Workflow.md Phase 3).
+if [[ "$MODE" == "bootstrap" ]]; then
+  OUT_ELF="build/us/aero.us.elf"
+else
+  OUT_ELF="build/us/aero.us.splatasm.elf"
+fi
 
 if [[ ! -f "$ROM" ]]; then
   echo "Missing ROM $ROM" >&2

@@ -25,11 +25,29 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/config/cmake")
 include(AeroStrictDebug)
 aero_export_compile_commands_default()
 
-# Bootstrap executable only — link engine (e.g. lib/Zelda64Recomp) once submodule is added.
+# RecompiledFuncs — Banjo pattern (Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt).
+add_library(RecompiledFuncs STATIC)
+file(GLOB AERO_FUNC_C_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/RecompiledFuncs/*.c")
+file(GLOB AERO_FUNC_CXX_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/RecompiledFuncs/*.cpp")
+target_sources(RecompiledFuncs PRIVATE ${AERO_FUNC_C_SOURCES} ${AERO_FUNC_CXX_SOURCES})
+if(MSVC)
+  target_compile_options(RecompiledFuncs PRIVATE /wd4100 /wd4189)
+else()
+  target_compile_options(RecompiledFuncs PRIVATE -fno-strict-aliasing -Wno-unused-variable)
+endif()
+target_include_directories(RecompiledFuncs PRIVATE
+  "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
+  "${CMAKE_SOURCE_DIR}/RecompiledFuncs"
+)
+
 add_executable(Aero64Recompiled
   src/main/main.cpp
 )
 target_include_directories(Aero64Recompiled PRIVATE
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
+  "${CMAKE_SOURCE_DIR}/RecompiledFuncs"
 )
+target_link_libraries(Aero64Recompiled PRIVATE RecompiledFuncs)
 aero_apply_strict_host_debug(Aero64Recompiled)

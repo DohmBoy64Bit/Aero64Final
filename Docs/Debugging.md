@@ -7,10 +7,10 @@ This project follows `Docs/SystemPrompt.md`: no guessed toolchain behavior, ROM-
 Both goals are supported in parallel:
 
 1. **Track A — bootstrap (default)**  
-   Run `bash tools/scripts/build_aero_us_elf.sh` with **`AERO_LINK_MODE=bootstrap`** (default). Produces **`build/us/aero.us.elf`** for **`config/aero.us.toml`** and N64Recomp. This ELF is a **flat `.incbin`** of cart bytes at VRAM `0x80200000`; it is **not** the same as a linked splat image (see ROM check below).
+   Run `bash tools/scripts/build_aero_us_elf.sh` with **`AERO_LINK_MODE=bootstrap`** (default). Produces **`build/us/aero.us.elf`**. This ELF is a **flat `.incbin`** of cart bytes at VRAM `0x80200000`; it is **not** the same as a linked splat image (see ROM check below). **`config/aero.us.toml`** targets the splatasm artifact for N64Recomp; keep a fresh bootstrap ELF for **`config/aero.us.regen.toml`** (stub regen) or local experiments.
 
 2. **Track B — splatasm (splat-per-TU link)**  
-   Run **`AERO_LINK_MODE=splatasm bash tools/scripts/build_aero_us_elf.sh`**. The linker fails with **`R_MIPS_26`** / “relocation truncated” when a **`jal func_80[23]…`** target has **no exported symbol** at that VMA (spimdisasm often names a target inside another `D_802...` chunk). Fix: add **`glabel func_…`** on the line **immediately before** the instruction whose splat comment shows that VMA (second hex field in `/* romoff VRAM word */` on `split/us/asm/game/rom_*.s`, not `main.s`). Other failures you may see after `ld -r` merge: **`R_MIPS_PC16`** (branch used a global label but a **`.L…`** sits on the same instruction — export **`glabel …`** for data/abs refs and retarget the branch to **`.L…`** in the same TU); **`jal`/`j` to `0x8400…`** (out of **`j`/`jal`’s 256 MiB window** — use **`lui`/`ori`/`jr` or `jalr`** and keep the original delay-slot instruction).  
+   Run **`AERO_LINK_MODE=splatasm bash tools/scripts/build_aero_us_elf.sh`**. Writes **`build/us/aero.us.splatasm.elf`** (bootstrap **`build/us/aero.us.elf`** is unchanged). The linker fails with **`R_MIPS_26`** / “relocation truncated” when a **`jal func_80[23]…`** target has **no exported symbol** at that VMA (spimdisasm often names a target inside another `D_802...` chunk). Fix: add **`glabel func_…`** on the line **immediately before** the instruction whose splat comment shows that VMA (second hex field in `/* romoff VRAM word */` on `split/us/asm/game/rom_*.s`, not `main.s`). Other failures you may see after `ld -r` merge: **`R_MIPS_PC16`** (branch used a global label but a **`.L…`** sits on the same instruction — export **`glabel …`** for data/abs refs and retarget the branch to **`.L…`** in the same TU); **`jal`/`j` to `0x8400…`** (out of **`j`/`jal`’s 256 MiB window** — use **`lui`/`ori`/`jr` or `jalr`** and keep the original delay-slot instruction).  
 
    **Automated prep (recommended after a fresh `splat split`):** from repo root in WSL, **`AERO_SPLATASM_REFRESH=1 bash tools/scripts/build_aero_us_elf.sh`** runs **`sync_aero_us_assets.sh`** (splat + IPL3), then **`tools/scripts/splatasm_autoglabel_jal.py`** and **`tools/scripts/splatasm_fix_jal_local_labels.py`**, then assembles/links in **splatasm** mode (see script header). If asm is already split and you only need the two prep steps: **`AERO_LINK_MODE=splatasm AERO_SPLATASM_PREP=1 bash tools/scripts/build_aero_us_elf.sh`**.  
 
@@ -18,8 +18,12 @@ Both goals are supported in parallel:
 
    `python3 tools/scripts/splatasm_list_missing_jal.py`
 
-3. **If splatasm fails, refresh bootstrap before N64Recomp**  
-   A failed final link may leave **`build/us/aero.us.elf`** missing or stale. Re-run **`AERO_LINK_MODE=bootstrap`** so **`tools/N64Recomp.exe config/aero.us.toml`** always has a valid ELF.
+3. **If splatasm link fails, refresh bootstrap**  
+   A failed final link may leave **`build/us/aero.us.splatasm.elf`** missing or stale. Re-run **`AERO_LINK_MODE=bootstrap`** so **`build/us/aero.us.elf`** exists for **`config/aero.us.regen.toml`** and other tools.
+
+## Windows N64Recomp on **`aero.us.splatasm.elf`**
+
+Observed on this tree: **`tools/N64Recomp.exe config/aero.us.toml`** (no **`--dump-context`**) can exit **`0xC0000005`** (**`-1073741819`**) with no stderr while **`--dump-context`** completes (**exit 0**). **`config/aero.us.regen.toml`** points at **`build/us/aero.us.elf`** with **`[patches].stubs = ["recomp_entrypoint"]`** so **`RecompiledFuncs/`** can be regenerated for host CMake until the splatasm + full pipeline path is stable (same stub mechanism as **`tools/source/N64Recomp/src/config.cpp`** / **`main.cpp`**).
 
 ## Confirmed ROM target (user)
 

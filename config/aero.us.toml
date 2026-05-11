@@ -10,22 +10,20 @@
 entrypoint = 0x80200050
 output_func_path = "../RecompiledFuncs"
 rom_file_path = "../roms/afa.n64.us.z64"
-# Bootstrap ELF (raw ROM .text @ 0x80200000): tools/scripts/build_aero_us_elf.sh (default mode)
-elf_path = "../build/us/aero.us.elf"
+# Splat-linked ELF (jump tables / rodata layout for N64Recomp): AERO_LINK_MODE=splatasm
+# bash tools/scripts/build_aero_us_elf.sh → build/us/aero.us.splatasm.elf
+# Bootstrap-only ELF (raw .incbin .text): default same script → build/us/aero.us.elf
+elf_path = "../build/us/aero.us.splatasm.elf"
 # symbols_file_path = "../build/aero.us.syms.toml"
 bss_section_suffix = "_bss"
 
-# Bootstrap ELF: entry is only STT_FUNC; N64Recomp assigns dummy size 0x50 then renames to
-# "recomp_entrypoint" (tools/source/N64Recomp/src/elf.cpp). Without an override, jal targets
-# inside the ROM blob resolve as static_* chunks and analyze_function fails. Size = bytes from
-# entry VMA (0x80200050) through end of .main .text: 0x7FF000 - 0x50 = 0x7FEFB0 (see
-# split/us/asm/bootstrap/aero_us_rom_text.s and config/ld/aero.us.bootstrap.ld).
+# Bootstrap-style single blob: N64Recomp assigns dummy size 0x50 then renames to "recomp_entrypoint"
+# (tools/source/N64Recomp/src/elf.cpp). Override spans entry through end of .main .text:
+# 0x7FF000 - 0x50 = 0x7FEFB0 (split/us/asm/bootstrap/aero_us_rom_text.s, config/ld/aero.us.bootstrap.ld).
 function_sizes = [
     { name = "recomp_entrypoint", size = 0x7FEFB0 },
 ]
 
-# Temporary: bootstrap ELF makes N64Recomp read the wrong words for the jump table at 0x80251BE0
-# (see Docs/Debugging.md ROM check). Stub the entry until you use a splat-linked ELF in elf_path
-# or fix rodata layout. Patches table keys from tools/source/N64Recomp/src/config.cpp (stubs array).
-[patches]
-stubs = ["recomp_entrypoint"]
+# If N64Recomp fails on jump-table analysis with the bootstrap blob ELF, build the splatasm ELF
+# and point elf_path at aero.us.splatasm.elf. Temporary stub workaround: [patches] stubs in
+# tools/source/N64Recomp/src/config.cpp — see Docs/Debugging.md.
