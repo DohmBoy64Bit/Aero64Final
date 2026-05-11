@@ -34,8 +34,8 @@ VS CMake presets: see `CMakePresets.json` (`windows-msvc-debug`, `windows-msvc-r
 
 ## Phase 2 — ROM
 
-- Place **legally obtained** USA dump as `roms/AeroFightersAssault.z64` **or** adjust `rom_file_path` in `config/aero.us.toml` (paths relative to that TOML — same rule as Banjo `[input]` in `Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt`).
-- Record SHA-256 in `Docs/Debugging.md` when stable.
+- Place **legally obtained** USA dump at **`roms/afa.n64.us.z64`** (default for **`aero.us.splat.yaml`**, **`tools/scripts/build_aero_us_elf.sh`** / **`sync_aero_us_assets.sh`** via **`ROM=...`**, and **`config/aero.us.toml`** `rom_file_path`). If your file uses another name, copy or symlink it to that path **or** change both `rom_file_path` in **`config/aero.us.toml`** and **`options.target_path`** in **`aero.us.splat.yaml`** (and any **`ROM=...`** you pass to scripts) so every tool agrees — paths are relative to each config file’s directory where noted (same idea as Banjo `[input]` in `Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt`).
+- Record SHA-256 in `Docs/Debugging.md` when stable (splat already documents the expected **SHA-1** in **`aero.us.splat.yaml`**).
 
 ## Phase 3 — Split → ELF → Recomp
 

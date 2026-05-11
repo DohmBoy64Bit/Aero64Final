@@ -235,8 +235,8 @@ ProjectRoot/
 │   ├── SystemPrompt.md
 │   ├── Workflow.md
 │   └── Architecture.md
-├── roms/                # Original N64 ROM files
-│   ├── AeroFightersAssault.z64
+├── roms/                # Original N64 ROM files (gitignored)
+│   ├── afa.n64.us.z64   # USA default for this repo (see aero.us.splat.yaml)
 │   └── ...
 ├── build/               # Build outputs
 ├── engine/              # Zelda64Recomp (optional: fork or submodule)
