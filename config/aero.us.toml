@@ -24,4 +24,8 @@ function_sizes = [
     { name = "recomp_entrypoint", size = 0x7FEFB0 },
 ]
 
-# manual_funcs, patches, stubs, etc. — add when N64Recomp upstream template for this game is known.
+# Temporary: bootstrap ELF makes N64Recomp read the wrong words for the jump table at 0x80251BE0
+# (see Docs/Debugging.md ROM check). Stub the entry until you use a splat-linked ELF in elf_path
+# or fix rodata layout. Patches table keys from tools/source/N64Recomp/src/config.cpp (stubs array).
+[patches]
+stubs = ["recomp_entrypoint"]
