@@ -10,9 +10,13 @@ Both goals are supported in parallel:
    Run `bash tools/scripts/build_aero_us_elf.sh` with **`AERO_LINK_MODE=bootstrap`** (default). Produces **`build/us/aero.us.elf`** for **`config/aero.us.toml`** and N64Recomp. This ELF is a **flat `.incbin`** of cart bytes at VRAM `0x80200000`; it is **not** the same as a linked splat image (see ROM check below).
 
 2. **Track B — splatasm (splat-per-TU link)**  
-   Run **`AERO_LINK_MODE=splatasm bash tools/scripts/build_aero_us_elf.sh`**. The linker fails with **`R_MIPS_26`** / “relocation truncated” when a **`jal func_802XXXXXX`** target has **no exported symbol** at that VMA (spimdisasm often names a target inside another `D_802...` chunk). Fix: add **`glabel func_802XXXXXX`** on the line **immediately before** the instruction whose comment shows that VMA (see existing `/* splatasm: ... */` comments in `split/us/asm/game/`). After a failed splat link, list missing names from **`build/us/ld.log`** with:
+   Run **`AERO_LINK_MODE=splatasm bash tools/scripts/build_aero_us_elf.sh`**. The linker fails with **`R_MIPS_26`** / “relocation truncated” when a **`jal func_80[23]…`** target has **no exported symbol** at that VMA (spimdisasm often names a target inside another `D_802...` chunk). Fix: add **`glabel func_…`** on the line **immediately before** the instruction whose splat comment shows that VMA (second hex field in `/* romoff VRAM word */` on `split/us/asm/game/rom_*.s`, not `main.s`). Other failures you may see after `ld -r` merge: **`R_MIPS_PC16`** (branch used a global label but a **`.L…`** sits on the same instruction — export **`glabel …`** for data/abs refs and retarget the branch to **`.L…`** in the same TU); **`jal`/`j` to `0x8400…`** (out of **`j`/`jal`’s 256 MiB window** — use **`lui`/`ori`/`jr` or `jalr`** and keep the original delay-slot instruction).  
 
-   `python tools/scripts/splatasm_list_missing_jal.py`
+   **Automated prep (recommended after a fresh `splat split`):** from repo root in WSL, **`AERO_SPLATASM_REFRESH=1 bash tools/scripts/build_aero_us_elf.sh`** runs **`sync_aero_us_assets.sh`** (splat + IPL3), then **`tools/scripts/splatasm_autoglabel_jal.py`** and **`tools/scripts/splatasm_fix_jal_local_labels.py`**, then assembles/links in **splatasm** mode (see script header). If asm is already split and you only need the two prep steps: **`AERO_LINK_MODE=splatasm AERO_SPLATASM_PREP=1 bash tools/scripts/build_aero_us_elf.sh`**.  
+
+   After a failed splat link, list **`func_…`** names still mentioned in **`build/us/ld.log`** with:
+
+   `python3 tools/scripts/splatasm_list_missing_jal.py`
 
 3. **If splatasm fails, refresh bootstrap before N64Recomp**  
    A failed final link may leave **`build/us/aero.us.elf`** missing or stale. Re-run **`AERO_LINK_MODE=bootstrap`** so **`tools/N64Recomp.exe config/aero.us.toml`** always has a valid ELF.

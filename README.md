@@ -10,6 +10,7 @@ Upstream-shaped tree (see `Docs/SystemPrompt.md` and `Docs/Architecture.md`): `s
 
 - Root **`aero.us.splat.yaml`** + WSL: `bash tools/scripts/sync_aero_us_assets.sh` (splat `split` + IPL3; `splat_split_aero_us.sh` calls the same). See `Docs/Workflow.md`.
 - USA ROM on disk: `roms/afa.n64.us.z64` (must match `sha1` in the yaml).
+- **Splatasm one-shot** (regen asm + linker prep + per-TU ELF): `AERO_SPLATASM_REFRESH=1 bash tools/scripts/build_aero_us_elf.sh` (WSL, ROM present). Details: `Docs/Debugging.md` Track B.
 
 ## Tools (Phase 1)
 
