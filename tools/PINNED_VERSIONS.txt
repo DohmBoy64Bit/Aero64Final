@@ -1,0 +1,8 @@
+N64Recomp (upstream https://github.com/N64Recomp/N64Recomp)
+  Commit: 81213c1831fab2521a6a5459c67b63437d67e253
+  Built: MSVC VS2022 x64 Release
+  Outputs copied to tools/: N64Recomp.exe, RSPRecomp.exe
+  Source: tools/source/N64Recomp (see tools/source/N64Recomp/README.md Building section: CMake 3.20+, C++20, git submodules recursive)
+
+  Local patch (Aero64Final): tools/source/N64Recomp/src/elf.cpp — entrypoint symbol match uses
+  uint32_t cast for VRAM >= 0x80000000 (upstream had int32/uint64 mismatch; see elf.cpp near read_symbols).

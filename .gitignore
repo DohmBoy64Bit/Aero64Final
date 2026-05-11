@@ -1,0 +1,40 @@
+# User-owned ROM dumps (do not commit)
+roms/*.z64
+roms/*.n64
+roms/*.v64
+roms/*.Z64
+roms/*.N64
+roms/*.V64
+
+# CMake / VS outputs
+out/
+build/
+build-*/
+cmake-build*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.user
+.vs/
+compile_commands.json
+
+# N64Recomp output (regenerated; keep empty tree via .gitkeep)
+RecompiledFuncs/*
+!RecompiledFuncs/.gitkeep
+
+# Local N64Recomp vendor build tree (sources may stay; build dir is disposable)
+tools/source/N64Recomp/build-msvc/
+
+# Splat / mips link outputs (regenerate with splat + tools/scripts)
+build/us/
+split/us/asm/
+split/us/assets/
+split/us/.splache/
+split/us/aero.us.ld
+split/us/aero.us.d
+split/us/undefined_funcs_auto.txt
+split/us/undefined_syms_auto.txt
+
+# Regeneration helpers (optional; keep _splat_split_lines.txt if you want pinned splat hints)
+tools/scripts/_generated_subsegments.yaml
+split/us/generated.symbols.txt

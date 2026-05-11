@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "windows-msvc-relwithdebinfo",
+      "displayName": "Windows MSVC RelWithDebInfo",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-msvc-relwithdebinfo",
+      "configurePreset": "windows-msvc-relwithdebinfo",
+      "configuration": "RelWithDebInfo"
+    }
+  ]
+}

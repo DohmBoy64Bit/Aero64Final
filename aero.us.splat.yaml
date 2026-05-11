@@ -1,0 +1,266 @@
+# Splat 0.x — Aero Fighters Assault (USA). Run from repo root:
+#   wsl -e bash -lc "cd /mnt/c/.../Aero64Final && splat split aero.us.splat.yaml"
+#
+# Evidence for VRAM base 0x80200000:
+#   - ROM: roms/afa.n64.us.z64 (8388608 bytes)
+#   - Big-endian header word @ 0x08 (entry PC) = 0x80200050 (standard n64 header layout)
+#   - ROM @ 0x1050 is addiu $sp,... (function prologue); 0x80200000 + 0x1050 - 0x1000 = 0x80200050
+# Segment model: ethteck/splat docs/Segments.md ; options skeleton from test/basic_app/splat.yaml
+#
+# bss_size is a conservative placeholder — refine with a map or Ghidra once .bss is located.
+#
+# main subsegment ROM boundaries: first chunk 0x1000–0x1370, then splat 0.40.0 “file split suggestions”
+# (206 boundaries) merged as separate asm TUs named game/rom_<offset>. Regenerate via
+#   tools/scripts/gen_splat_subsegments.py + tools/scripts/_splat_split_lines.txt
+#
+# ROM integrity (splat warns if missing/mismatched): sha1 of roms/afa.n64.us.z64
+sha1: 6742f67d7d2639072e186d240237be1c662cb25a
+
+options:
+  base_path: .
+  platform: n64
+  compiler: IDO
+  basename: aero_us
+  build_path: build/us
+  target_path: roms/afa.n64.us.z64
+  elf_path: build/us/aero.us.elf
+  asm_path: split/us/asm
+  src_path: split/us/src
+  ld_script_path: split/us/aero.us.ld
+  cache_path: split/us/.splache
+  symbol_addrs_path: split/us/generated.symbols.txt
+  undefined_funcs_auto_path: split/us/undefined_funcs_auto.txt
+  undefined_syms_auto_path: split/us/undefined_syms_auto.txt
+  asset_path: split/us/assets
+  o_as_suffix: True
+  ld_dependencies: True
+  create_asm_dependencies: True
+  disassemble_all: True
+  make_full_disasm_for_code: True
+
+segments:
+  - name: header
+    type: header
+    start: 0x0
+
+  - name: ipl3
+    type: code
+    start: 0x40
+    vram: 0xA4000040
+    subsegments:
+      - [0x40, bin, boot/ipl3]
+
+  - name: main
+    type: code
+    start: 0x1000
+    vram: 0x80200000
+    bss_size: 0x100000
+    subsegments:
+      - [0x1000, asm, game/rom_00001000]
+      - [0x1370, asm, game/rom_00001370]
+      - [0x2180, asm, game/rom_00002180]
+      - [0x48E0, asm, game/rom_000048e0]
+      - [0x6840, asm, game/rom_00006840]
+      - [0x8210, asm, game/rom_00008210]
+      - [0x91E0, asm, game/rom_000091e0]
+      - [0x9600, asm, game/rom_00009600]
+      - [0x1BC60, asm, game/rom_0001bc60]
+      - [0x1DD30, asm, game/rom_0001dd30]
+      - [0x20160, asm, game/rom_00020160]
+      - [0x20F50, asm, game/rom_00020f50]
+      - [0x247F0, asm, game/rom_000247f0]
+      - [0x24C10, asm, game/rom_00024c10]
+      - [0x29C90, asm, game/rom_00029c90]
+      - [0x2B9F0, asm, game/rom_0002b9f0]
+      - [0x2BF10, asm, game/rom_0002bf10]
+      - [0x2CE30, asm, game/rom_0002ce30]
+      - [0x2FE10, asm, game/rom_0002fe10]
+      - [0x30EF0, asm, game/rom_00030ef0]
+      - [0x31B30, asm, game/rom_00031b30]
+      - [0x32E90, asm, game/rom_00032e90]
+      - [0x33F90, asm, game/rom_00033f90]
+      - [0x35830, asm, game/rom_00035830]
+      - [0x35940, asm, game/rom_00035940]
+      - [0x35B30, asm, game/rom_00035b30]
+      - [0x35D90, asm, game/rom_00035d90]
+      - [0x35E40, asm, game/rom_00035e40]
+      - [0x35E60, asm, game/rom_00035e60]
+      - [0x35ED0, asm, game/rom_00035ed0]
+      - [0x35FC0, asm, game/rom_00035fc0]
+      - [0x36030, asm, game/rom_00036030]
+      - [0x36090, asm, game/rom_00036090]
+      - [0x360F0, asm, game/rom_000360f0]
+      - [0x36150, asm, game/rom_00036150]
+      - [0x361B0, asm, game/rom_000361b0]
+      - [0x361F0, asm, game/rom_000361f0]
+      - [0x36900, asm, game/rom_00036900]
+      - [0x37B30, asm, game/rom_00037b30]
+      - [0x37C80, asm, game/rom_00037c80]
+      - [0x37CE0, asm, game/rom_00037ce0]
+      - [0x37F30, asm, game/rom_00037f30]
+      - [0x380D0, asm, game/rom_000380d0]
+      - [0x381C0, asm, game/rom_000381c0]
+      - [0x38310, asm, game/rom_00038310]
+      - [0x385A0, asm, game/rom_000385a0]
+      - [0x38620, asm, game/rom_00038620]
+      - [0x386D0, asm, game/rom_000386d0]
+      - [0x386E0, asm, game/rom_000386e0]
+      - [0x38ED0, asm, game/rom_00038ed0]
+      - [0x38F10, asm, game/rom_00038f10]
+      - [0x38F20, asm, game/rom_00038f20]
+      - [0x399E0, asm, game/rom_000399e0]
+      - [0x39A20, asm, game/rom_00039a20]
+      - [0x39AC0, asm, game/rom_00039ac0]
+      - [0x39B00, asm, game/rom_00039b00]
+      - [0x39B40, asm, game/rom_00039b40]
+      - [0x3A0D0, asm, game/rom_0003a0d0]
+      - [0x3A270, asm, game/rom_0003a270]
+      - [0x3A520, asm, game/rom_0003a520]
+      - [0x3AEE0, asm, game/rom_0003aee0]
+      - [0x3B580, asm, game/rom_0003b580]
+      - [0x3B6B0, asm, game/rom_0003b6b0]
+      - [0x3DD10, asm, game/rom_0003dd10]
+      - [0x3DD40, asm, game/rom_0003dd40]
+      - [0x3DDB0, asm, game/rom_0003ddb0]
+      - [0x3DDC0, asm, game/rom_0003ddc0]
+      - [0x3DEB0, asm, game/rom_0003deb0]
+      - [0x3E070, asm, game/rom_0003e070]
+      - [0x3E420, asm, game/rom_0003e420]
+      - [0x3E750, asm, game/rom_0003e750]
+      - [0x3E7D0, asm, game/rom_0003e7d0]
+      - [0x3EA90, asm, game/rom_0003ea90]
+      - [0x3EE70, asm, game/rom_0003ee70]
+      - [0x3EEE0, asm, game/rom_0003eee0]
+      - [0x3EF50, asm, game/rom_0003ef50]
+      - [0x3EFC0, asm, game/rom_0003efc0]
+      - [0x3F1A0, asm, game/rom_0003f1a0]
+      - [0x3F2E0, asm, game/rom_0003f2e0]
+      - [0x3F350, asm, game/rom_0003f350]
+      - [0x3F650, asm, game/rom_0003f650]
+      - [0x3F660, asm, game/rom_0003f660]
+      - [0x3F7F0, asm, game/rom_0003f7f0]
+      - [0x3F9B0, asm, game/rom_0003f9b0]
+      - [0x3FD70, asm, game/rom_0003fd70]
+      - [0x3FFD0, asm, game/rom_0003ffd0]
+      - [0x40080, asm, game/rom_00040080]
+      - [0x40210, asm, game/rom_00040210]
+      - [0x407D0, asm, game/rom_000407d0]
+      - [0x40860, asm, game/rom_00040860]
+      - [0x408F0, asm, game/rom_000408f0]
+      - [0x40990, asm, game/rom_00040990]
+      - [0x40A20, asm, game/rom_00040a20]
+      - [0x40AC0, asm, game/rom_00040ac0]
+      - [0x40B40, asm, game/rom_00040b40]
+      - [0x425D0, asm, game/rom_000425d0]
+      - [0x42710, asm, game/rom_00042710]
+      - [0x42750, asm, game/rom_00042750]
+      - [0x431E0, asm, game/rom_000431e0]
+      - [0x431F0, asm, game/rom_000431f0]
+      - [0x432B0, asm, game/rom_000432b0]
+      - [0x43A80, asm, game/rom_00043a80]
+      - [0x43B20, asm, game/rom_00043b20]
+      - [0x447C0, asm, game/rom_000447c0]
+      - [0x44AC0, asm, game/rom_00044ac0]
+      - [0x45720, asm, game/rom_00045720]
+      - [0x45830, asm, game/rom_00045830]
+      - [0x45A70, asm, game/rom_00045a70]
+      - [0x47610, asm, game/rom_00047610]
+      - [0x47980, asm, game/rom_00047980]
+      - [0x47B30, asm, game/rom_00047b30]
+      - [0x47B50, asm, game/rom_00047b50]
+      - [0x47F40, asm, game/rom_00047f40]
+      - [0x47F80, asm, game/rom_00047f80]
+      - [0x48010, asm, game/rom_00048010]
+      - [0x48040, asm, game/rom_00048040]
+      - [0x48460, asm, game/rom_00048460]
+      - [0x48470, asm, game/rom_00048470]
+      - [0x487D0, asm, game/rom_000487d0]
+      - [0x487E0, asm, game/rom_000487e0]
+      - [0x48FC0, asm, game/rom_00048fc0]
+      - [0x48FE0, asm, game/rom_00048fe0]
+      - [0x49090, asm, game/rom_00049090]
+      - [0x49110, asm, game/rom_00049110]
+      - [0x49170, asm, game/rom_00049170]
+      - [0x49210, asm, game/rom_00049210]
+      - [0x49B20, asm, game/rom_00049b20]
+      - [0x4A120, asm, game/rom_0004a120]
+      - [0x4A1A0, asm, game/rom_0004a1a0]
+      - [0x4A8D0, asm, game/rom_0004a8d0]
+      - [0x4A8F0, asm, game/rom_0004a8f0]
+      - [0x4B540, asm, game/rom_0004b540]
+      - [0x4B6F0, asm, game/rom_0004b6f0]
+      - [0x4B700, asm, game/rom_0004b700]
+      - [0x4B7F0, asm, game/rom_0004b7f0]
+      - [0x4B850, asm, game/rom_0004b850]
+      - [0x4B8A0, asm, game/rom_0004b8a0]
+      - [0x4B8F0, asm, game/rom_0004b8f0]
+      - [0x4BE20, asm, game/rom_0004be20]
+      - [0x4BEF0, asm, game/rom_0004bef0]
+      - [0x4E6C0, asm, game/rom_0004e6c0]
+      - [0x4E720, asm, game/rom_0004e720]
+      - [0x822F0, asm, game/rom_000822f0]
+      - [0x82C00, asm, game/rom_00082c00]
+      - [0x837C0, asm, game/rom_000837c0]
+      - [0x83C10, asm, game/rom_00083c10]
+      - [0x83DF0, asm, game/rom_00083df0]
+      - [0x843B0, asm, game/rom_000843b0]
+      - [0x84DC0, asm, game/rom_00084dc0]
+      - [0x8DF30, asm, game/rom_0008df30]
+      - [0x917C0, asm, game/rom_000917c0]
+      - [0x91B50, asm, game/rom_00091b50]
+      - [0x91F50, asm, game/rom_00091f50]
+      - [0x967E0, asm, game/rom_000967e0]
+      - [0x973D0, asm, game/rom_000973d0]
+      - [0x99BB0, asm, game/rom_00099bb0]
+      - [0x99F80, asm, game/rom_00099f80]
+      - [0x9A480, asm, game/rom_0009a480]
+      - [0x9A5F0, asm, game/rom_0009a5f0]
+      - [0x9E1E0, asm, game/rom_0009e1e0]
+      - [0xA0EF0, asm, game/rom_000a0ef0]
+      - [0xA21D0, asm, game/rom_000a21d0]
+      - [0xA3300, asm, game/rom_000a3300]
+      - [0xA3FE0, asm, game/rom_000a3fe0]
+      - [0xA59B0, asm, game/rom_000a59b0]
+      - [0xA71C0, asm, game/rom_000a71c0]
+      - [0xA77B0, asm, game/rom_000a77b0]
+      - [0xA87C0, asm, game/rom_000a87c0]
+      - [0xA9C00, asm, game/rom_000a9c00]
+      - [0xA9F60, asm, game/rom_000a9f60]
+      - [0xAB400, asm, game/rom_000ab400]
+      - [0xB8FE0, asm, game/rom_000b8fe0]
+      - [0xB93A0, asm, game/rom_000b93a0]
+      - [0xBA0C0, asm, game/rom_000ba0c0]
+      - [0xBA380, asm, game/rom_000ba380]
+      - [0xBA960, asm, game/rom_000ba960]
+      - [0xCADC0, asm, game/rom_000cadc0]
+      - [0xCC3D0, asm, game/rom_000cc3d0]
+      - [0xCD320, asm, game/rom_000cd320]
+      - [0xCDD30, asm, game/rom_000cdd30]
+      - [0xCFF50, asm, game/rom_000cff50]
+      - [0xD0F50, asm, game/rom_000d0f50]
+      - [0xD2140, asm, game/rom_000d2140]
+      - [0xD2510, asm, game/rom_000d2510]
+      - [0xD3E80, asm, game/rom_000d3e80]
+      - [0xD4290, asm, game/rom_000d4290]
+      - [0xD51E0, asm, game/rom_000d51e0]
+      - [0xD6790, asm, game/rom_000d6790]
+      - [0xD8DA0, asm, game/rom_000d8da0]
+      - [0xD9600, asm, game/rom_000d9600]
+      - [0xD97F0, asm, game/rom_000d97f0]
+      - [0xD9FB0, asm, game/rom_000d9fb0]
+      - [0xDDA20, asm, game/rom_000dda20]
+      - [0xDE640, asm, game/rom_000de640]
+      - [0xE1A40, asm, game/rom_000e1a40]
+      - [0xE1F70, asm, game/rom_000e1f70]
+      - [0xE6CA0, asm, game/rom_000e6ca0]
+      - [0xE7400, asm, game/rom_000e7400]
+      - [0xEAC50, asm, game/rom_000eac50]
+      - [0xEB700, asm, game/rom_000eb700]
+      - [0xEEFA0, asm, game/rom_000eefa0]
+      - [0xF0A40, asm, game/rom_000f0a40]
+      - [0xF0BE0, asm, game/rom_000f0be0]
+      - [0xF0F30, asm, game/rom_000f0f30]
+      - [0xF1730, asm, game/rom_000f1730]
+      - [0xF38E0, asm, game/rom_000f38e0]
+      - [0xF3CB0, asm, game/rom_000f3cb0]
+      - [0x800000]

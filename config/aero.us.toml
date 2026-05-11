@@ -1,0 +1,27 @@
+# Aero Fighters Assault (USA) — N64Recomp config stub.
+# Paths in [input] are relative to THIS file (same rule as Banjo-Kazooie recomp:
+# Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt → FILE: banjo.us.rev0.toml).
+#
+# Do NOT invent entrypoint, ELF, or symbol paths. Fill after Splat → mips link → Ghidra verification.
+
+[input]
+# VRAM 0x80200050 (ROM 0x1050). Patched local N64Recomp compares entrypoint to ELF symbol VMA as uint32
+# (tools/source/N64Recomp/src/elf.cpp).
+entrypoint = 0x80200050
+output_func_path = "../RecompiledFuncs"
+rom_file_path = "../roms/afa.n64.us.z64"
+# Bootstrap ELF (raw ROM .text @ 0x80200000): tools/scripts/build_aero_us_elf.sh (default mode)
+elf_path = "../build/us/aero.us.elf"
+# symbols_file_path = "../build/aero.us.syms.toml"
+bss_section_suffix = "_bss"
+
+# Bootstrap ELF: entry is only STT_FUNC; N64Recomp assigns dummy size 0x50 then renames to
+# "recomp_entrypoint" (tools/source/N64Recomp/src/elf.cpp). Without an override, jal targets
+# inside the ROM blob resolve as static_* chunks and analyze_function fails. Size = bytes from
+# entry VMA (0x80200050) through end of .main .text: 0x7FF000 - 0x50 = 0x7FEFB0 (see
+# split/us/asm/bootstrap/aero_us_rom_text.s and config/ld/aero.us.bootstrap.ld).
+function_sizes = [
+    { name = "recomp_entrypoint", size = 0x7FEFB0 },
+]
+
+# manual_funcs, patches, stubs, etc. — add when N64Recomp upstream template for this game is known.
