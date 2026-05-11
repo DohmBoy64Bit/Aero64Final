@@ -43,6 +43,7 @@ VS CMake presets: see `CMakePresets.json` (`windows-msvc-debug`, `windows-msvc-r
    ```bash
    bash tools/scripts/sync_aero_us_assets.sh
    ```
+   After splat, **`tools/scripts/sync_aero_us_assets.sh`** runs **`tools/scripts/fix_aero_us_ld_ipl3_vram_end.py`** when Python is available (fixes **`ipl3_VRAM_END`** placement in **`split/us/aero.us.ld`**; see **`Docs/Debugging.md`**). For N64Recomp’s **`entrypoint`**, apply **`config/splat_guides/aero_boot_entry_rom_00001000.fragment`** to **`split/us/asm/game/rom_00001000.s`** (gitignored) before splatasm link.
    Same as `splat_split_aero_us.sh`. Use **`bash tools/scripts/sync_aero_us_assets.sh --ipl3-only`** to refresh only `split/us/assets/boot/ipl3.bin` from `ROM`. To run splat automatically before linking the ELF: **`AERO_SYNC_ASSETS=1 bash tools/scripts/build_aero_us_elf.sh`** (slow on every build). For a **full splat regen + Track B asm prep + splatasm link** in one command: **`AERO_SPLATASM_REFRESH=1 bash tools/scripts/build_aero_us_elf.sh`** (sets **`AERO_LINK_MODE=splatasm`**, runs sync, then **`splatasm_autoglabel_jal.py`** and **`splatasm_fix_jal_local_labels.py`**; see **`Docs/Debugging.md`** Track B).
    - ROM must match **`sha1`** in that file (computed with `sha1sum roms/afa.n64.us.z64` on your copy).
    - VRAM base **`0x80200000`** / entry **`0x80200050`** were derived from the on-disk USA dump (header @ 0x08 + match to ROM `0x1050` prologue); see comments in `aero.us.splat.yaml`.

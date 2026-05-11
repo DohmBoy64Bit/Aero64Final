@@ -54,6 +54,16 @@ if ! command -v splat >/dev/null 2>&1; then
 fi
 
 splat split aero.us.splat.yaml
+py=python3
+if ! command -v "$py" >/dev/null 2>&1; then
+  py=python
+fi
+if command -v "$py" >/dev/null 2>&1; then
+  echo "Post-splat: $py tools/scripts/fix_aero_us_ld_ipl3_vram_end.py"
+  "$py" "$ROOT/tools/scripts/fix_aero_us_ld_ipl3_vram_end.py"
+else
+  echo "Skipping LD fix (no python): run tools/scripts/fix_aero_us_ld_ipl3_vram_end.py after splat if needed." >&2
+fi
 extract_ipl3
 echo "Assets synced: splat output under split/us/assets (and asm under split/us/asm); IPL3 refreshed."
 echo "If splat prints new file-split lines, save to tools/scripts/_splat_split_lines.txt and run:"

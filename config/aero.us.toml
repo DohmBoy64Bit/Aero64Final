@@ -17,13 +17,9 @@ elf_path = "../build/us/aero.us.splatasm.elf"
 # symbols_file_path = "../build/aero.us.syms.toml"
 bss_section_suffix = "_bss"
 
-# Bootstrap-style single blob: N64Recomp assigns dummy size 0x50 then renames to "recomp_entrypoint"
-# (tools/source/N64Recomp/src/elf.cpp). Override spans entry through end of .main .text:
-# 0x7FF000 - 0x50 = 0x7FEFB0 (split/us/asm/bootstrap/aero_us_rom_text.s, config/ld/aero.us.bootstrap.ld).
-function_sizes = [
-    { name = "recomp_entrypoint", size = 0x7FEFB0 },
-]
+# Splatasm ELF exports aero_boot_entry at 0x80200050 with a real .size (split/us/asm/game/rom_00001000.s
+# endlabel). Bootstrap single-blob regen still uses function_sizes in config/aero.us.regen.toml.
 
-# If N64Recomp fails on jump-table analysis with the bootstrap blob ELF, build the splatasm ELF
-# and point elf_path at aero.us.splatasm.elf. Temporary stub workaround: [patches] stubs in
-# tools/source/N64Recomp/src/config.cpp — see Docs/Debugging.md.
+[patches]
+# spimdisasm sometimes emits FUNC glabels on data; N64Recomp can fault analyzing bogus opcodes.
+ignored = ["D_80241710", "D_80278134"]

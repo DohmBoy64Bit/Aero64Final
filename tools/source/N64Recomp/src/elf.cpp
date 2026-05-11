@@ -103,12 +103,35 @@ bool read_symbols(N64Recomp::Context& context, const ELFIO::elfio& elf_file, ELF
                     }
                 }
 
-                if (section_index < context.sections.size()) {
+                // NOBITS / NOLOAD sections have no ROM image; skip ROM-backed Function rows (rom_addr == -1).
+                // dumping_context still records these as data symbols below.
+                if (section.rom_addr == static_cast<uint32_t>(-1)) {
+                    // nothing
+                }
+                else if (section_index < context.sections.size()) {
                     auto section_offset = value - elf_file.sections[section_index]->get_address();
                     uint32_t vram = static_cast<uint32_t>(value);
                     uint32_t num_instructions = type == ELFIO::STT_FUNC ? size / 4 : 0;
                     uint32_t rom_address = static_cast<uint32_t>(section_offset + section.rom_addr);
-                    const uint32_t* words = reinterpret_cast<const uint32_t*>(context.rom.data() + rom_address);
+                    const size_t rom_size = context.rom.size();
+                    const uint64_t insn_bytes = static_cast<uint64_t>(num_instructions) * 4;
+                    if (num_instructions > 0) {
+                        if (static_cast<uint64_t>(rom_address) + insn_bytes > rom_size) {
+                            fmt::print(stderr,
+                                "Skipping symbol \"{}\" (VRAM 0x{:08X}): ROM range [0x{:08X}, 0x{:016X}) exceeds ROM size 0x{:X}.\n",
+                                name, vram, rom_address, static_cast<uint64_t>(rom_address) + insn_bytes,
+                                static_cast<uint64_t>(rom_size));
+                            continue;
+                        }
+                    } else if (static_cast<uint64_t>(rom_address) > rom_size) {
+                        fmt::print(stderr,
+                            "Skipping symbol \"{}\" (VRAM 0x{:08X}): rom_address 0x{:08X} past ROM end 0x{:X} (linker marker in wrong output section?).\n",
+                            name, vram, rom_address, static_cast<uint64_t>(rom_size));
+                        continue;
+                    }
+                    const uint32_t* words = num_instructions > 0
+                        ? reinterpret_cast<const uint32_t*>(context.rom.data() + rom_address)
+                        : nullptr;
 
                     section.function_addrs.push_back(vram);
                     context.functions_by_vram[vram].push_back(context.functions.size());

@@ -23,7 +23,19 @@ Both goals are supported in parallel:
 
 ## Windows N64Recomp on **`aero.us.splatasm.elf`**
 
-Observed on this tree: **`tools/N64Recomp.exe config/aero.us.toml`** (no **`--dump-context`**) can exit **`0xC0000005`** (**`-1073741819`**) with no stderr while **`--dump-context`** completes (**exit 0**). **`config/aero.us.regen.toml`** points at **`build/us/aero.us.elf`** with **`[patches].stubs = ["recomp_entrypoint"]`** so **`RecompiledFuncs/`** can be regenerated for host CMake until the splatasm + full pipeline path is stable (same stub mechanism as **`tools/source/N64Recomp/src/config.cpp`** / **`main.cpp`**).
+**Resolved causes (2026-05):**
+
+1. **`ipl3_VRAM_END` in the wrong ELF section** — Splat’s **`split/us/aero.us.ld`** assigned **`ipl3_VRAM_END = .`** *after* the **`.ipl3`** block closed, so GNU ld bound the symbol to the next output section (**.main**) while keeping VMA **`0xA4001000`**. **`read_symbols`** then computed a bogus ROM offset and could fault (**`tools/source/N64Recomp/src/elf.cpp`**). Fix: move **`ipl3_VRAM_END = .`** *inside* the **`.ipl3 { ... }`** block (same pattern if other VRAM markers show **Ndx** `.main` with an IPL3-range address).
+
+2. **NOBITS / `.main_bss` symbols** — Sections with **`rom_addr == (uint32_t)-1`** still hit the ROM-backed path; **`read_symbols`** now skips creating **`Function`** rows for those symbols unless **`--dump-context`** (data symbol path).
+
+3. **Out-of-range ROM slices** — **`read_symbols`** now skips symbols whose **`rom_address`** or instruction span exceeds **`context.rom.size()`** (with **`stderr`** diagnostics) instead of forming invalid pointers.
+
+4. **Bootstrap-only `function_sizes` on splatasm** — **`config/aero.us.toml`** must **not** force **`recomp_entrypoint`** to span the whole cart when using splatasm; the entry is **`aero_boot_entry`** in **`split/us/asm/game/rom_00001000.s`** with a real **`.size`** (**`endlabel`**). Bootstrap regen still uses **`function_sizes`** in **`config/aero.us.regen.toml`**.
+
+**Still common:** spimdisasm **`glabel`** on **data** yields **`STT_FUNC`** symbols whose words are not valid MIPS; N64Recomp can **`0xC0000005`** during **`recompile_function`**. Add names under **`[patches].ignored`** in **`config/aero.us.toml`** (**`tools/source/N64Recomp/src/config.cpp`** **`get_ignored_funcs`**, applied in **`main.cpp`**) until the TU is retyped in asm/splat.
+
+**Regen when needed:** **`config/aero.us.regen.toml`** — bootstrap **`build/us/aero.us.elf`** + **`[patches].stubs = ["recomp_entrypoint"]`** for **`RecompiledFuncs/`** when iterating the host build.
 
 ## Confirmed ROM target (user)
 

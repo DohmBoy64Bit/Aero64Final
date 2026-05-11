@@ -1,0 +1,13 @@
+# Paste into split/us/asm/game/rom_00001000.s (not committed; see .gitignore) after splat split.
+# N64Recomp needs STT_FUNC at config entrypoint 0x80200050 (tools/source/N64Recomp/src/elf.cpp).
+#
+# 1) Change the first chunk label from glabel to dlabel so it is not a competing FUNC:
+#      dlabel D_80200000
+# 2) Immediately before the instruction at VRAM 0x80200050 (ROM comment /* 1050 80200050 ... */):
+#      glabel aero_boot_entry
+# 3) Replace endlabel D_80200000 (after the boot chunk) with:
+#      endlabel aero_boot_entry
+#
+# Re-assemble splatasm ELF (tools/scripts/build_aero_us_elf.sh). Verify:
+#   mips-linux-gnu-readelf -s build/us/aero.us.splatasm.elf | grep aero_boot
+# Expect: aero_boot_entry at 80200050 with non-zero FUNC size.
