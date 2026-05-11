@@ -56,28 +56,29 @@ VS CMake presets: see `CMakePresets.json` (`windows-msvc-debug`, `windows-msvc-r
    Per-splat TU assemble still uses **`-I config/asm_include`** for `macro.inc` (project-local).
 3. **N64Recomp** — `tools/N64Recomp.exe config/aero.us.toml` (paths relative to the TOML’s directory). The **bootstrap** ELF finds the entrypoint after a **local** `elf.cpp` uint32 comparison patch in `tools/source/N64Recomp` (see `tools/PINNED_VERSIONS.txt`); full recompilation still needs a **properly symbolized** ELF from splat/asm + jump tables, not only the raw `.incbin` blob.
 
-### Parallel priorities (do both; order is flexible)
+### Parallel tracks (pick primary; others stay documented)
 
-These two goals overlap but do not block each other until **`RecompiledFuncs/`** contains a **compiling** N64Recomp emit. Once **`tools/N64Recomp.exe`** succeeds against **`build/us/aero.us.splatasm.elf`** (or another correct ELF), root **`CMakeLists.txt`** links the **`RecompiledFuncs`** static library per Banjo **`add_library(RecompiledFuncs STATIC)`** in **`Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt`**, using **`tools/source/N64Recomp/include`** for **`recomp.h`** and **`include/librecomp/sections.h`** for generated **`recomp_overlays.inl`** until **`lib/N64ModernRuntime`** is vendored.
+Root **`CMakeLists.txt`** can link **`RecompiledFuncs`** per Banjo **`add_library(RecompiledFuncs STATIC)`** in **`Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt`**, using **`tools/source/N64Recomp/include`** for **`recomp.h`** and **`include/librecomp/sections.h`** until **`lib/N64ModernRuntime`** is vendored.
 
-**Track A — N64Recomp on splatasm ELF (canonical `elf_path`)**
+**Track A — N64Recomp on splatasm ELF (`config/aero.us.toml`) — sidelined (checkpoint)**
 
-1. WSL: **`bash tools/scripts/build_aero_us_elf.sh`** (default bootstrap → **`build/us/aero.us.elf`**) and **`AERO_LINK_MODE=splatasm bash tools/scripts/build_aero_us_elf.sh`** → **`build/us/aero.us.splatasm.elf`** (see **`Docs/Debugging.md`** if the Windows CLI faults on the splatasm ELF).
-2. Repo root (Windows): **`tools\N64Recomp.exe config\aero.us.toml`**. To refresh stubbed **`RecompiledFuncs/`** for CMake when that run faults, use **`tools\N64Recomp.exe config\aero.us.regen.toml`**.
-3. Iterate **`config/aero.us.toml`**: **`unmatched_functions`**, **`function_sizes`**, **`manual_funcs`**, etc., using N64Recomp stderr + Ghidra (`Docs/Debugging.md`). Re-run until generation completes or remaining failures are explicitly listed and deferred.
-4. **`RecompiledFuncs/*.c`** and **`lookup.cpp`** are wired in root **`CMakeLists.txt`** (Phase 4); regenerate after **`N64Recomp.exe`** when **`elf_path`** or splat layout changes.
+This path fights **splat-linked** **`build/us/aero.us.splatasm.elf`**: bogus FUNC labels on data, jump-table analysis vs. synthesized ROM image, and local patches under **`tools/source/N64Recomp/`** (ELF hardening, **`[patches].ignored`** wildcards, **`analysis.cpp`** ROM bounds, diagnostics in **`main.cpp`** / **`recompilation.cpp`**). **Checkpoint (last known good):** **`tools\N64Recomp.exe config\aero.us.toml`** completes with the current **`[patches].ignored`** list in that file (includes **`func_8029C46C`** after jump-table analysis surfaced a bad table); outputs under **`RecompiledFuncs/`**. **Bootstrap regen** without splat analysis pain: **`config/aero.us.regen.toml`** + **`build/us/aero.us.elf`**. Resume Track A when you want to keep tightening splat/asm instead of growing a symbol file.
 
 **Track B — Host executable + engine (`lib/`) toward a playable window**
 
 1. Add **`lib/`** content per **`lib/README.txt`** (submodule or vendor tree with the runtime / engine CMake targets you are mirroring — e.g. Zelda64Recomp-style layout from **`Docs/RepoInjests/`**).
 2. Extend **`CMakeLists.txt`**: **`add_subdirectory(lib/...)`**, link **`Aero64Recompiled`** to the same helper libs upstream uses; keep **`aero_apply_strict_host_debug`** on the exe.
-3. Grow **`src/main/main.cpp`** (or `src/game/`) only as needed: ROM path, frame loop calling into recomp once Track A links, logging — still runnable as a minimal window before full game logic.
-4. Merge the tracks when **`RecompiledFuncs`** compiles: one **`Aero64Recompiled`** links engine + recompiled C.
+3. **`AERO_WITH_ENGINE=ON`** (when `lib/rt64`, `lib/RmlUi`, `lib/lunasvg`, `lib/N64ModernRuntime`, `lib/concurrentqueue` exist): run **`powershell -File tools/scripts/fetch_aero_engine_deps.ps1`** once, then configure with **`AERO_WITH_ENGINE=ON`**. The host runs the **RmlUi** SDL+OpenGL3 launcher in **`src/host/aero_engine_launcher.cpp`** (see **`lib/RmlUi/Samples/basic/load_document/src/main.cpp`** for the same `Backend::` / `Rml::` sequence). **`main.cpp`** dispatches to that path when **`AERO_LINK_LIBRECOMP`** is defined (root **`CMakeLists.txt`**). Next: wire **`recomp::start`** and **`ultramodern::renderer::callbacks_t::create_render_context`** (Kirby **`rt64_render_context.cpp`** in **`Docs/RepoInjests/Kirby64/...`**) so RT64 draws the N64 display list path.
+4. Point CMake at whichever recomp output directory you are using (**`RecompiledFuncs/`** vs. **`RecompiledFuncsSymbolsTrack/`**) when you switch tracks.
+
+**Track C — Upstream-style input (Banjo / Zelda pattern; preferred low-friction recomp)**
+
+Banjo’s shipped game config uses **`symbols_file_path`** + **`rom_file_path`** and leaves **`elf_path` commented out** — see **`Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt`**, **`FILE: banjo.us.rev0.toml`** (`symbols_file_path = "BanjoRecompSyms/bk.us.rev0.syms.toml"`). Zelda uses a small **`patches/patches.elf`** for patch code, not a raw multi-hundred-TU splat ELF for the whole game. **Aero parallel:** grow **`AeroRecompSyms/aero.us.syms.toml`** (schema: **`tools/source/N64Recomp/src/config.cpp`** `from_symbol_file`) and run **`tools\N64Recomp.exe config\aero.us.symbols_track.toml`** → **`RecompiledFuncsSymbolsTrack/`** (gitignored except **`.gitkeep`**). **`AeroRecompSyms/README.txt`** documents the **`func.rom == 0x1000`** entrypoint rename quirk and points back to **`main.cpp`**. The track config stubs **`recomp_entrypoint`** the same way **`aero.us.regen.toml`** does until the symbol list carries real rodata/jump-table context (Banjo’s **`[patches].stubs`** list is long for the same reason). **No splat game ELF required** for N64Recomp once the syms file is complete enough for your goals.
 
 ## Phase 4 — Engine integration
 
-- Add **`lib/`** submodule(s) per `lib/README.txt` (Zelda64Recomp / N64Recomp as upstream dictates).
-- Extend root `CMakeLists.txt`: `add_subdirectory(lib/...)` and link `RecompiledFuncs` + engine libs mirroring Banjo/Zelda CMake (use RepoInjests as diff references).
+- **Without `AERO_WITH_ENGINE`:** **`Aero64Recompiled`** opens an **SDL2** window with **`SDL_Renderer`** (clear + bar) — see **`Docs/Debugging.md`** “SDL2 graphics smoke (no engine)”.
+- **With `AERO_WITH_ENGINE`:** CMake adds **`config/cmake/AeroEngine.cmake`**: **RT64**, **RmlUi** (FreeType + **lunasvg** SVG plugin), **N64ModernRuntime** (**ultramodern**, **librecomp**), **concurrentqueue** includes, **Ares** under **`lib/ares`** as include-only RSP reference. The executable uses the **RmlUi SDL + OpenGL 3.3** sample backend (**`lib/RmlUi/Backends/RmlUi_Backend_SDL_GL3.cpp`** et al.), fetches **SDL2_image** on Windows (same VC zip pattern as **`AeroSDL2.cmake`** for SDL2), downloads **DejaVuSans.ttf** (OFL) into the build tree and copies it next to the exe for **`Rml::LoadFontFace`**. **N64 / RDP output** still needs Kirby-style **`create_render_context`** + **`recomp::start`** (see **`lib/N64ModernRuntime/librecomp/include/librecomp/game.hpp`** `recomp::start`, **`lib/N64ModernRuntime/ultramodern/include/ultramodern/renderer_context.hpp`**).
 
 ## Phase 5–6 — Patches and stabilization
 

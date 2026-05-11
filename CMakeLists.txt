@@ -23,7 +23,27 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/config/cmake")
 include(AeroStrictDebug)
+include(AeroSDL2)
+include(AeroEngine)
 aero_export_compile_commands_default()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/lib/rt64/CMakeLists.txt"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/lib/RmlUi/CMakeLists.txt"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/lib/lunasvg/CMakeLists.txt"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/CMakeLists.txt"
+    AND EXISTS "${CMAKE_SOURCE_DIR}/lib/concurrentqueue")
+  set(AERO_ENGINE_DEFAULT ON)
+else()
+  set(AERO_ENGINE_DEFAULT OFF)
+endif()
+
+option(AERO_WITH_ENGINE
+  "Link RT64, RmlUi, lunasvg, FreeType (bundled fetch), N64ModernRuntime, concurrentqueue. Requires lib/* (run tools/scripts/fetch_aero_engine_deps.ps1)."
+  ${AERO_ENGINE_DEFAULT})
+
+if(AERO_WITH_ENGINE)
+  aero_add_engine_subprojects()
+endif()
 
 # RecompiledFuncs — Banjo pattern (Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt).
 add_library(RecompiledFuncs STATIC)
@@ -35,19 +55,57 @@ if(MSVC)
 else()
   target_compile_options(RecompiledFuncs PRIVATE -fno-strict-aliasing -Wno-unused-variable)
 endif()
+
 target_include_directories(RecompiledFuncs PRIVATE
   "${CMAKE_SOURCE_DIR}/include"
-  "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
   "${CMAKE_SOURCE_DIR}/RecompiledFuncs"
 )
 
+if(AERO_WITH_ENGINE)
+  target_include_directories(RecompiledFuncs PRIVATE
+    "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/ultramodern/include"
+    "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/librecomp/include"
+    "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include"
+  )
+else()
+  target_include_directories(RecompiledFuncs PRIVATE
+    "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
+  )
+endif()
+
 add_executable(Aero64Recompiled
   src/main/main.cpp
+  src/host/recomp_runtime_stubs.cpp
 )
+
+if(AERO_WITH_ENGINE)
+  target_sources(Aero64Recompiled PRIVATE src/host/aero_engine_launcher.cpp)
+endif()
+
+if(AERO_WITH_ENGINE)
+  target_compile_definitions(Aero64Recompiled PRIVATE AERO_LINK_LIBRECOMP=1)
+endif()
+
 target_include_directories(Aero64Recompiled PRIVATE
   "${CMAKE_SOURCE_DIR}/include"
-  "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
   "${CMAKE_SOURCE_DIR}/RecompiledFuncs"
 )
+
+if(AERO_WITH_ENGINE)
+  target_include_directories(Aero64Recompiled PRIVATE
+    "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include"
+  )
+else()
+  target_include_directories(Aero64Recompiled PRIVATE
+    "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
+  )
+endif()
+
 target_link_libraries(Aero64Recompiled PRIVATE RecompiledFuncs)
+aero_target_link_sdl2(Aero64Recompiled)
+
+if(AERO_WITH_ENGINE)
+  aero_target_link_engine(Aero64Recompiled)
+endif()
+
 aero_apply_strict_host_debug(Aero64Recompiled)

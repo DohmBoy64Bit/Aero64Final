@@ -21,6 +21,8 @@ compile_commands.json
 # N64Recomp output (regenerated; keep empty tree via .gitkeep)
 RecompiledFuncs/*
 !RecompiledFuncs/.gitkeep
+RecompiledFuncsSymbolsTrack/*
+!RecompiledFuncsSymbolsTrack/.gitkeep
 
 # Local N64Recomp vendor build tree (sources may stay; build dir is disposable)
 tools/source/N64Recomp/build-msvc/
@@ -38,3 +40,11 @@ split/us/undefined_syms_auto.txt
 # Regeneration helpers (optional; keep _splat_split_lines.txt if you want pinned splat hints)
 tools/scripts/_generated_subsegments.yaml
 split/us/generated.symbols.txt
+
+# Engine vendor trees (clone with tools/scripts/fetch_aero_engine_deps.ps1; do not commit multi-GB subtrees)
+lib/rt64/
+lib/RmlUi/
+lib/lunasvg/
+lib/N64ModernRuntime/
+lib/concurrentqueue/
+lib/ares/

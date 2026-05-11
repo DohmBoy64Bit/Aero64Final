@@ -2,6 +2,26 @@
 
 This project follows `Docs/SystemPrompt.md`: no guessed toolchain behavior, ROM-specific work in `game/` / patches, generated recomp output treated as read-only.
 
+## Track C — symbols + ROM (Banjo-style, no splat game ELF)
+
+N64Recomp **`symbols_file_path`** + **`rom_file_path`** only — see **`Docs/Workflow.md`** and **`config/aero.us.symbols_track.toml`**, **`AeroRecompSyms/`**. **`tools\N64Recomp.exe config\aero.us.symbols_track.toml`** writes **`RecompiledFuncsSymbolsTrack/`** (gitignored). Grow **`AeroRecompSyms/aero.us.syms.toml`** instead of fighting splat reloc noise when you want the upstream-shaped path.
+
+## SDL2 graphics smoke (no engine)
+
+If **`AERO_WITH_ENGINE`** is **OFF** (default when **`lib/rt64`** / **`lib/RmlUi`** / etc. are missing), **`src/main/main.cpp`** uses **SDL2** only: accelerated **`SDL_Renderer`** (clear + animated bar). CMake fetches **`SDL2-devel-*-VC.zip`** on Windows (Kirby64Recomp pattern in **`Docs/RepoInjests/Kirby64/kirby64ret-kirby64recomp-8a5edab282632443.txt`**; implementation **`config/cmake/AeroSDL2.cmake`**). Override SDL2 version with env **`SDL2_VERSION`**. Linux/macOS: **`find_package(SDL2 REQUIRED)`** (`libsdl2-dev` / Homebrew **`sdl2`**).
+
+After **`cmake --build … --config Debug`**, run **`out/build/<preset>/Debug/Aero64Recompiled.exe`** from repo root (VS working directory: repo root per **`AeroStrictDebug.cmake`**). **Escape** or close to quit. This path does **not** load RmlUi or RT64.
+
+## Engine build — RmlUi launcher (host)
+
+With **`AERO_WITH_ENGINE=ON`** (and vendored trees under **`lib/`**), **`main.cpp`** calls **`aero_run_engine_mode`** in **`src/host/aero_engine_launcher.cpp`**. That follows the RmlUi sample **`lib/RmlUi/Samples/basic/load_document/src/main.cpp`**: **`Backend::Initialize`** → **`Rml::SetSystemInterface` / `SetRenderInterface`** → **`Rml::Initialise`** → context + debugger + font + document loop (**`Backend::ProcessEvents`**, **`context->Update`**, **`Backend::BeginFrame`**, **`context->Render`**, **`Backend::PresentFrame`**).
+
+- **Backend sources:** **`lib/RmlUi/Backends/RmlUi_Backend_SDL_GL3.cpp`**, **`RmlUi_Renderer_GL3.cpp`**, **`RmlUi_Platform_SDL.cpp`** (wired in **`config/cmake/AeroEngine.cmake`**). **`RMLUI_SDL_VERSION_*`** are set there to match SDL2.
+- **SDL2_image:** required because **`RenderInterface_GL3_SDL`** uses **`IMG_LoadTyped_RW`** (see **`lib/RmlUi/Backends/RmlUi_Backend_SDL_GL3.cpp`**). Windows: fetched VC **`SDL2_image-devel-*-VC.zip`** (override with **`SDL2_IMAGE_VERSION`**). Linux: install **`libsdl2-image-dev`** and ensure CMake finds **`SDL2_image`**.
+- **Font:** CMake **`file(DOWNLOAD)`** pulls **DejaVu Sans** from the **DejaVu fonts** repository (**`version_2_37/ttf/DejaVuSans.ttf`**, OFL); **`POST_BUILD`** copies **`DejaVuSans.ttf`** next to the executable. **`SDL_GetBasePath()`** resolves the load path at runtime.
+- **Shortcuts:** **F8** toggles the RmlUi debugger (**`Rml::Debugger`** — same idea as **`lib/RmlUi/Samples/shell/src/Shell.cpp`** `ProcessKeyDownShortcuts`). **Escape** calls **`Backend::RequestExit()`** in the launcher shortcut handler.
+- **Still not N64 RDP:** RT64 and librecomp are **linked**, but there is no **`recomp::start`** or **`create_render_context`** yet. Implement Kirby **`FILE: src/main/rt64_render_context.cpp`** from **`Docs/RepoInjests/Kirby64/kirby64ret-kirby64recomp-8a5edab282632443.txt`** and register games/overlays before expecting in-game frames.
+
 ## Dual track: bootstrap (playable path) vs splatasm (correct ELF)
 
 Both goals are supported in parallel:
