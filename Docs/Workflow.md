@@ -55,6 +55,24 @@ VS CMake presets: see `CMakePresets.json` (`windows-msvc-debug`, `windows-msvc-r
    Per-splat TU assemble still uses **`-I config/asm_include`** for `macro.inc` (project-local).
 3. **N64Recomp** — `tools/N64Recomp.exe config/aero.us.toml` (paths relative to the TOML’s directory). The **bootstrap** ELF finds the entrypoint after a **local** `elf.cpp` uint32 comparison patch in `tools/source/N64Recomp` (see `tools/PINNED_VERSIONS.txt`); full recompilation still needs a **properly symbolized** ELF from splat/asm + jump tables, not only the raw `.incbin` blob.
 
+### Parallel priorities (do both; order is flexible)
+
+These two goals overlap but do not block each other until **`RecompiledFuncs/`** contains a **complete, compiling** N64Recomp emit (today’s stub **`funcs_0.c`** is intentionally incomplete — do not wire it into **`CMakeLists.txt`** until a real run fills **`recomp_entrypoint`** and friends).
+
+**Track A — N64Recomp clean on bootstrap ELF**
+
+1. WSL: **`bash tools/scripts/build_aero_us_elf.sh`** (default **`AERO_LINK_MODE=bootstrap`**) → **`build/us/aero.us.elf`**.
+2. Repo root (Windows): **`tools\N64Recomp.exe config\aero.us.toml`**.
+3. Iterate **`config/aero.us.toml`**: **`unmatched_functions`**, **`function_sizes`**, **`manual_funcs`**, etc., using N64Recomp stderr + Ghidra (`Docs/Debugging.md`). Re-run until generation completes or remaining failures are explicitly listed and deferred.
+4. When **`RecompiledFuncs/*.c`** is real and complete, add those sources (and **`tools/source/N64Recomp/include`** / runtime from **`lib/`** per upstream) to **`CMakeLists.txt`** and compile **`Aero64Recompiled`** against them (Phase 4).
+
+**Track B — Host executable + engine (`lib/`) toward a playable window**
+
+1. Add **`lib/`** content per **`lib/README.txt`** (submodule or vendor tree with the runtime / engine CMake targets you are mirroring — e.g. Zelda64Recomp-style layout from **`Docs/RepoInjests/`**).
+2. Extend **`CMakeLists.txt`**: **`add_subdirectory(lib/...)`**, link **`Aero64Recompiled`** to the same helper libs upstream uses; keep **`aero_apply_strict_host_debug`** on the exe.
+3. Grow **`src/main/main.cpp`** (or `src/game/`) only as needed: ROM path, frame loop calling into recomp once Track A links, logging — still runnable as a minimal window before full game logic.
+4. Merge the tracks when **`RecompiledFuncs`** compiles: one **`Aero64Recompiled`** links engine + recompiled C.
+
 ## Phase 4 — Engine integration
 
 - Add **`lib/`** submodule(s) per `lib/README.txt` (Zelda64Recomp / N64Recomp as upstream dictates).
