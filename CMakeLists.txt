@@ -79,7 +79,13 @@ add_executable(Aero64Recompiled
 )
 
 if(AERO_WITH_ENGINE)
-  target_sources(Aero64Recompiled PRIVATE src/host/aero_engine_launcher.cpp)
+  target_sources(Aero64Recompiled PRIVATE
+    src/host/aero_engine_launcher.cpp
+    src/host/aero_register_overlays.cpp
+    src/host/aero_rt64_render_context.cpp
+    src/host/aero_recomp_callbacks.cpp
+    src/host/aero_recomp_host.cpp
+  )
 endif()
 
 if(AERO_WITH_ENGINE)
@@ -93,7 +99,9 @@ target_include_directories(Aero64Recompiled PRIVATE
 
 if(AERO_WITH_ENGINE)
   target_include_directories(Aero64Recompiled PRIVATE
+    "${CMAKE_SOURCE_DIR}/include"
     "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include"
+    "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/thirdparty"
   )
 else()
   target_include_directories(Aero64Recompiled PRIVATE
@@ -109,3 +117,9 @@ if(AERO_WITH_ENGINE)
 endif()
 
 aero_apply_strict_host_debug(Aero64Recompiled)
+
+# CMake + Visual Studio: ALL_BUILD is not runnable. Pin the real executable as the startup project
+# (see CMake property VS_STARTUP_PROJECT — https://cmake.org/cmake/help/latest/prop_dir/VS_STARTUP_PROJECT.html).
+if(CMAKE_GENERATOR MATCHES "Visual Studio")
+	set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT Aero64Recompiled)
+endif()

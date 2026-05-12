@@ -22,4 +22,4 @@ bss_section_suffix = "_bss"
 
 [patches]
 # spimdisasm sometimes emits FUNC glabels on data; N64Recomp can fault analyzing bogus opcodes.
-ignored = ["D_80241710", "D_80278134"]
+ignored = ["D_*", "func_80234ED0", "func_8023D7A0", "func_80248090", "func_8023CD40", "func_8029C46C"]

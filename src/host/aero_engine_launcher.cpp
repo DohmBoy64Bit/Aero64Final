@@ -2,9 +2,9 @@
 // Flow matches RmlUi sample: lib/RmlUi/Samples/basic/load_document/src/main.cpp (Backend::*, Rml::Initialise, Context, Update, Render).
 // Backend sources: lib/RmlUi/Backends/RmlUi_Backend_SDL_GL3.cpp, RmlUi_Renderer_GL3.cpp, RmlUi_Platform_SDL.cpp.
 //
-// RT64 + N64ModernRuntime are linked for the Kirby-shaped stack; presenting the N64 framebuffer still requires
-// ultramodern::renderer::callbacks_t::create_render_context wired like Kirby's src/main/rt64_render_context.cpp
-// (Docs/RepoInjests/Kirby64/kirby64ret-kirby64recomp-8a5edab282632443.txt) and recomp::start (lib/N64ModernRuntime/librecomp/include/librecomp/game.hpp).
+// After the launcher: press G to shut down RmlUi and run recomp::start + RT64 (src/host/aero_recomp_host.cpp,
+// aero_rt64_render_context.cpp). Or: Aero64Recompiled.exe --recomp from repo root (same path, no UI).
+// ROM path: aero::kDefaultRomRelativePath (see include/aero_runtime.h).
 
 #if defined(AERO_LINK_LIBRECOMP) && (AERO_LINK_LIBRECOMP)
 
@@ -19,14 +19,19 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 
 #include "RmlUi_Backend.h"
+
+#include "aero_runtime.h"
 
 #include "funcs.h"
 #include "recomp.h"
 
 namespace {
+
+static bool g_launch_runtime_after_rmlui = false;
 
 static const char kLauncherRml[] = R"(
 <rml>
@@ -42,9 +47,9 @@ static const char kLauncherRml[] = R"(
 <body>
 <div id="wrap">
 	<h1>Aero64 — engine launcher (RmlUi)</h1>
-	<p>Stack: SDL2 + OpenGL 3.3 (RmlUi backend), RmlUi + FreeType + lunasvg (SVG), RT64 + ultramodern + librecomp (linked).</p>
-	<p>N64 RDP output is not wired yet: add <kbd>create_render_context</kbd> like Kirby <code>rt64_render_context.cpp</code> and drive <code>recomp::start</code> per <code>librecomp/game.hpp</code>.</p>
-	<p><kbd>Escape</kbd> quit &middot; <kbd>F8</kbd> RmlUi debugger</p>
+	<p>Stack: SDL2 + OpenGL 3.3 (RmlUi), RT64 + ultramodern + librecomp. Place the USA ROM at <kbd>roms/afa.n64.us.z64</kbd> (repo root / VS working directory).</p>
+	<p><kbd>G</kbd> start runtime (closes this UI, opens RT64 window, runs <code>recomp::start</code>). <kbd>Escape</kbd> quit launcher only. <kbd>F8</kbd> RmlUi debugger.</p>
+	<p>RSP tasks use a stub microcode (returns Broke); wire RSPRecomp output in <code>aero_recomp_callbacks.cpp</code> for real hardware behavior.</p>
 </div>
 </body>
 </rml>
@@ -64,6 +69,11 @@ bool ProcessKeyDownShortcuts(Rml::Context* context, Rml::Input::KeyIdentifier ke
 			Backend::RequestExit();
 			return false;
 		}
+		if (key == Rml::Input::KI_G) {
+			g_launch_runtime_after_rmlui = true;
+			Backend::RequestExit();
+			return false;
+		}
 	}
 	return true;
 }
@@ -78,8 +88,13 @@ std::filesystem::path BasePath() {
 } // namespace
 
 int aero_run_engine_mode(int argc, char** argv) {
-	(void)argc;
-	(void)argv;
+	for (int i = 1; i < argc; ++i) {
+		if (std::strcmp(argv[i], "--recomp") == 0) {
+			// Skip RmlUi; same entry as after pressing G (see kLauncherRml). cwd must be repo root for rom path.
+			aero::start_recomp_from_launcher();
+			return EXIT_SUCCESS;
+		}
+	}
 
 	const int window_width = 1024;
 	const int window_height = 640;
@@ -132,6 +147,10 @@ int aero_run_engine_mode(int argc, char** argv) {
 	Rml::Shutdown();
 	Backend::Shutdown();
 	IMG_Quit();
+
+	if (g_launch_runtime_after_rmlui) {
+		aero::start_recomp_from_launcher();
+	}
 	return EXIT_SUCCESS;
 }
 

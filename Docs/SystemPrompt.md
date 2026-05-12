@@ -199,15 +199,17 @@ Assemble all Splat-generated `.s` files and link them into an ELF. This ELF acts
 
 **Aero64Final (this repo) — scripted ELF:** use **`tools/scripts/build_aero_us_elf.sh`** from repo root in WSL instead of hand-assembling every TU. Two linker modes are documented in **`Docs/Debugging.md`** (dual track): **`AERO_LINK_MODE=bootstrap`** (default: flat `.incbin` ROM `.text` for **`tools/N64Recomp.exe config/aero.us.toml`**) vs **`AERO_LINK_MODE=splatasm`** (assemble **`split/us/asm/game/rom_*.s`** + partial link + merged splat LD). After a fresh **`splat split`**, **`AERO_SPLATASM_REFRESH=1 bash tools/scripts/build_aero_us_elf.sh`** runs **`tools/scripts/sync_aero_us_assets.sh`**, then **`tools/scripts/splatasm_autoglabel_jal.py`** and **`tools/scripts/splatasm_fix_jal_local_labels.py`** (Track B helpers), then splatasm assemble/link. If asm is already split and you only need those prep steps: **`AERO_LINK_MODE=splatasm AERO_SPLATASM_PREP=1 bash tools/scripts/build_aero_us_elf.sh`**. **`AERO_SYNC_ASSETS=1`** still means “run splat + IPL3 before build” without automatically running the Track B prep scripts. See **`Docs/Workflow.md`** Phase 3.
 
+**Parallel recomp strategy (Workflow):** **Track A** (canonical **`config/aero.us.toml`** + splatasm ELF) is **sidelined** with a written checkpoint in **`Docs/Workflow.md`** — it depends on a splat ELF as clean as a decomp’s. **Track C** follows Banjo’s **`symbols_file_path` + ROM** pattern (**`config/aero.us.symbols_track.toml`**, **`AeroRecompSyms/`**) so N64Recomp does not need that ELF at all until you choose to merge paths.
+
 ### Step 3: Recompilation (N64Recomp)
-Create a `[game].toml` configuration pointing to the original ROM and the generated ELF file.
+Create a `[game].toml` configuration pointing to the original ROM and either a **generated ELF** or a **curated symbols file** (Banjo-style: **`symbols_file_path`** in **`Docs/RepoInjests/BanjoKazooie/...`** `banjo.us.rev0.toml`).
 **Command:** `N64Recomp.exe [game].toml`
 *Mistakes to Avoid:*
 - If a function fails to recompile (e.g., due to lvalue errors or unrecognized instructions), identify its name/address in the output and manually add it to the `unmatched_functions` list in the `.toml` file to ignore it temporarily.
 - If the game crashes on boot, the entrypoint is likely incorrect. You MUST use **Ghidra** to check for things like finding the correct entrypoint address and verifying function boundaries.
 
 ### Step 4: Engine Integration & Native Build (CMake)
-Create a `CMakeLists.txt` combining the `RecompiledFuncs/*.c` output and the C++ engine wrapper.
+Create a `CMakeLists.txt` combining the `RecompiledFuncs/*.c` output and the C++ engine wrapper. This repo’s **`Aero64Recompiled`** already links **SDL2** (fetched on Windows per Kirby64Recomp’s CMake pattern in **`Docs/RepoInjests/Kirby64/...`**) and shows a **live SDL render window**; full **game** graphics still require **`lib/N64ModernRuntime`** (and typically RT64) per **`lib/README.txt`**.
 **Commands:**
 1. Configure: `cmake -B build-msvc -G "Visual Studio 17 2022" -A x64`
 2. Build: `cmake --build build-msvc --config Release`

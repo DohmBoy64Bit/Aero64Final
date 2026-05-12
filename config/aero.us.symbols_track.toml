@@ -1,0 +1,21 @@
+# Track C — Banjo-style: symbols_file_path + ROM (no splat game ELF).
+# Banjo reference: Docs/RepoInjests/BanjoKazooie/... FILE: banjo.us.rev0.toml
+#   symbols_file_path = "BanjoRecompSyms/bk.us.rev0.syms.toml"
+#   # elf_path = "banjo.us.v10.elf"
+#
+# Run from repo root (Windows): tools\N64Recomp.exe config\aero.us.symbols_track.toml
+# Grow ../AeroRecompSyms/aero.us.syms.toml with real sections/functions; use a
+# separate output_func_path until ready to replace Track A emit.
+
+[input]
+entrypoint = 0x80200050
+output_func_path = "../RecompiledFuncsSymbolsTrack"
+rom_file_path = "../roms/afa.n64.us.z64"
+symbols_file_path = "../AeroRecompSyms/aero.us.syms.toml"
+bss_section_suffix = "_bss"
+
+[patches]
+# Entry slice still contains a jump table N64Recomp cannot size from ROM alone; stub until
+# the symbol list covers real rodata layout (Banjo uses many boot stubs too — banjo.us.rev0.toml [patches].stubs).
+stubs = ["recomp_entrypoint"]
+ignored = []

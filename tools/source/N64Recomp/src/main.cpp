@@ -281,6 +281,10 @@ int main(int argc, char** argv) {
 
     const char* config_path = argv[1];
 
+    // MSVC may fully-buffer stdout/stderr when redirected; unbuffer so crash logs are not lost.
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    std::setvbuf(stderr, nullptr, _IONBF, 0);
+
     for (size_t i = 2; i < argc; i++) {
         std::string_view cur_arg = argv[i];
         if (cur_arg == "--dump-context") {
@@ -372,9 +376,14 @@ int main(int argc, char** argv) {
         }
 
         bool found_entrypoint_func;
+        fmt::print(stderr, "[N64Recomp] parsing ELF: {}\n", config.elf_path.string());
+        std::fflush(stderr);
         if (!N64Recomp::Context::from_elf_file(config.elf_path, context, elf_config, dumping_context, data_syms, found_entrypoint_func)) {
             exit_failure("Failed to parse elf\n");
         }
+        fmt::print(stderr, "[N64Recomp] ELF parsed ({} functions, ROM image {} bytes)\n",
+            context.functions.size(), context.rom.size());
+        std::fflush(stderr);
 
         // Add any manual functions
         add_manual_functions(context, config.manual_functions);
@@ -465,6 +474,8 @@ int main(int argc, char** argv) {
 
 
     fmt::print("Function count: {}\n", context.functions.size());
+    fmt::print(stderr, "[N64Recomp] output: {}\n", (std::filesystem::current_path() / config.output_func_path).string());
+    std::fflush(stderr);
 
     std::filesystem::create_directories(config.output_func_path);
 
@@ -484,31 +495,54 @@ int main(int argc, char** argv) {
 
     fmt::print("Working dir: {}\n", std::filesystem::current_path().string());
 
-    // Stub out any functions specified in the config file.
-    for (const std::string& stubbed_func : config.stubbed_funcs) {
-        // Check if the specified function exists.
-        auto func_find = context.functions_by_name.find(stubbed_func);
+    auto apply_wildcard_func_set = [&context, &exit_failure](const std::string& pattern, bool is_stubbed) {
+        // Supported pattern form: a single trailing '*' means "prefix match".
+        if (!pattern.empty() && pattern.back() == '*') {
+            std::string prefix = pattern.substr(0, pattern.size() - 1);
+            bool matched_any = false;
+            for (const auto& [name, idx] : context.functions_by_name) {
+                if (name.rfind(prefix, 0) == 0) { // starts_with(prefix)
+                    matched_any = true;
+                    if (is_stubbed) {
+                        context.functions[idx].stubbed = true;
+                    } else {
+                        context.functions[idx].ignored = true;
+                    }
+                }
+            }
+            if (!matched_any) {
+                exit_failure(fmt::format("Wildcard pattern '{}' matched no functions in the parsed ELF!", pattern));
+            }
+            return;
+        }
+
+        // Exact match.
+        auto func_find = context.functions_by_name.find(pattern);
         if (func_find == context.functions_by_name.end()) {
             // Function doesn't exist, present an error to the user instead of silently failing to stub it out.
             // This helps prevent typos in the config file or functions renamed between versions from causing issues.
-            exit_failure(fmt::format("Function {} is stubbed out in the config file but does not exist!", stubbed_func));
+            exit_failure(fmt::format("Function {} is {} in the config file but does not exist!", pattern, is_stubbed ? "stubbed out" : "set as ignored"));
         }
-        // Mark the function as stubbed.
-        context.functions[func_find->second].stubbed = true;
+
+        if (is_stubbed) {
+            context.functions[func_find->second].stubbed = true;
+        } else {
+            context.functions[func_find->second].ignored = true;
+        }
+    };
+
+    // Stub out any functions specified in the config file.
+    for (const std::string& stubbed_func : config.stubbed_funcs) {
+        apply_wildcard_func_set(stubbed_func, true /*is_stubbed*/);
     }
 
     // Ignore any functions specified in the config file.
     for (const std::string& ignored_func : config.ignored_funcs) {
-        // Check if the specified function exists.
-        auto func_find = context.functions_by_name.find(ignored_func);
-        if (func_find == context.functions_by_name.end()) {
-            // Function doesn't exist, present an error to the user instead of silently failing to mark it as ignored.
-            // This helps prevent typos in the config file or functions renamed between versions from causing issues.
-            exit_failure(fmt::format("Function {} is set as ignored in the config file but does not exist!", ignored_func));
-        }
-        // Mark the function as ignored.
-        context.functions[func_find->second].ignored = true;
+        apply_wildcard_func_set(ignored_func, false /*is_stubbed*/);
     }
+
+    fmt::print(stderr, "[N64Recomp] stubs/ignored applied; beginning recompilation (set N64RECOMP_TRACE=1 for per-function analyze log)\n");
+    std::fflush(stderr);
 
     // Rename any functions specified in the config file.
     for (const std::string& renamed_func : config.renamed_funcs) {
@@ -713,6 +747,13 @@ int main(int argc, char** argv) {
         const auto& func = context.functions[i];
 
         if (!func.ignored && func.words.size() != 0) {
+            // Progress trace: when we crash we need the last successfully-selected function.
+            if (i < 160u || (i % 200u) == 0u) {
+                fmt::print(stderr,
+                    "[N64Recomp] recomp {}/{}: {} ({} words, ignored={})\n",
+                    i + 1, context.functions.size(), func.name, func.words.size(), func.ignored);
+                std::fflush(stderr);
+            }
             fmt::print(func_header_file,
                 "void {}(uint8_t* rdram, recomp_context* ctx);\n", func.name);
             bool result;

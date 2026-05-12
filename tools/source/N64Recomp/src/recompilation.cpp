@@ -1,5 +1,6 @@
 #include <vector>
 #include <set>
+#include <cstdlib>
 #include <unordered_set>
 #include <unordered_map>
 #include <cassert>
@@ -410,8 +411,23 @@ bool process_instruction(GeneratorType& generator, const N64Recomp::Context& con
 
     bool handled = true;
 
+    // Some MIPS cache-related instructions are used only for side effects that our
+    // host-side recompilation model doesn't model. Treat all "cache" opcode
+    // variants as NOPs to avoid aborting the whole recompilation run.
+    if (instr.getOpcodeName() == "cache") {
+        fmt::print(stderr, "[N64Recomp] handling opcode cache as NOP (vram=0x{:08X})\n", instr.getVram());
+        fmt::print(output_file, "\n");
+        return true;
+    }
+
     switch (instr_id) {
     case InstrId::cpu_nop:
+        fmt::print(output_file, "\n");
+        break;
+    case InstrId::cpu_cache:
+        // Cache operations are side-effectful on real hardware cache/memory systems,
+        // but are irrelevant for our current host-side recompilation model.
+        // Treat as NOP so we can continue recompiling.
         fmt::print(output_file, "\n");
         break;
     // Cop0 (Limited functionality)
@@ -800,6 +816,11 @@ bool recompile_function_impl(GeneratorType& generator, const N64Recomp::Context&
 
         // Analyze function
         N64Recomp::FunctionStats stats{};
+        if (std::getenv("N64RECOMP_TRACE") != nullptr) {
+            fmt::print(stderr, "[N64Recomp] analyze {} ({} insns, vram=0x{:08X}, rom=0x{:08X})\n",
+                func.name, instructions.size(), func.vram, func.rom);
+            std::fflush(stderr);
+        }
         if (!N64Recomp::analyze_function(context, func, instructions, stats)) {
             fmt::print(stderr, "Failed to analyze {}\n", func.name);
             output_file.clear();

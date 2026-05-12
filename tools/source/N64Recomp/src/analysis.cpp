@@ -9,6 +9,19 @@
 
 extern "C" const char* RabbitizerRegister_getNameGpr(uint8_t regValue);
 
+namespace {
+
+bool read_rom_u32_be(const std::vector<uint8_t>& rom, uint64_t rom_offset, uint32_t* out) {
+    if (rom_offset + sizeof(uint32_t) > rom.size()) {
+        return false;
+    }
+    const uint8_t* p = rom.data() + rom_offset;
+    *out = byteswap(*reinterpret_cast<const uint32_t*>(p));
+    return true;
+}
+
+} // namespace
+
 // If 64-bit addressing is ever implemented, these will need to be changed to 64-bit values
 struct RegState {
     // For tracking a register that will be used to load from RAM
@@ -278,7 +291,14 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
             JumpTable& cur_jtbl = stats.jump_tables[i];
 
             if (cur_jtbl.got_offset.has_value()) {
-                uint32_t got_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[got_rom_addr + cur_jtbl.got_offset.value()]));
+                const uint64_t got_read_addr = static_cast<uint64_t>(got_rom_addr) + static_cast<uint64_t>(cur_jtbl.got_offset.value());
+                uint32_t got_word{};
+                if (!read_rom_u32_be(context.rom, got_read_addr, &got_word)) {
+                    fmt::print(stderr,
+                        "[N64Recomp] analyze_function \"{}\": GOT read out of ROM (addr=0x{:016X}, rom_size={}, jr_vram=0x{:08X})\n",
+                        func.name, got_read_addr, context.rom.size(), cur_jtbl.jr_vram);
+                    return false;
+                }
 
                 cur_jtbl.vram += (section->ram_addr + got_word);
             }
@@ -310,8 +330,16 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
         while (vram < end_address) {
             // Retrieve the current entry of the jump table
             // TODO same as above
-            uint32_t rom_addr = vram + func.rom - func.vram;
-            uint32_t jtbl_word = byteswap(*reinterpret_cast<const uint32_t*>(&context.rom[rom_addr]));
+            const uint64_t rom_addr64 = static_cast<uint64_t>(vram) + static_cast<uint64_t>(func.rom) - static_cast<uint64_t>(func.vram);
+            uint32_t jtbl_word{};
+            if (!read_rom_u32_be(context.rom, rom_addr64, &jtbl_word)) {
+                // Past the synthesized ROM image: treat as end of table (PI/splat layouts can
+                // otherwise AV here). Empty table is still an error below.
+                fmt::print(stderr,
+                    "[N64Recomp] analyze_function \"{}\": jump table scan stopped at ROM OOB (vram=0x{:08X}, rom_addr=0x{:016X}, rom_size={}, jr_vram=0x{:08X})\n",
+                    func.name, vram, rom_addr64, context.rom.size(), cur_jtbl.jr_vram);
+                break;
+            }
 
             if (cur_jtbl.got_offset.has_value() && got_ram_addr.has_value()) {
                 // Position independent jump tables have values that are offsets from the GOT,
@@ -329,6 +357,9 @@ bool N64Recomp::analyze_function(const N64Recomp::Context& context, const N64Rec
         }
 
         if (cur_jtbl.entries.size() == 0) {
+            fmt::print(stderr,
+                "[N64Recomp] analyze_function \"{}\": failed jump table at vram 0x{:08X} (jr 0x{:08X}); check splat/rodata or ignore this symbol. ROM size {}.\n",
+                func.name, cur_jtbl.vram, cur_jtbl.jr_vram, context.rom.size());
             fmt::print("Failed to determine size of jump table at 0x{:08X} for instruction at 0x{:08X}\n", cur_jtbl.vram, cur_jtbl.jr_vram);
             return false;
         }

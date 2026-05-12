@@ -8,6 +8,10 @@ Intended contents (upstream-shaped layout "B"):
     powershell -File tools/scripts/fetch_aero_engine_deps.ps1
   That script shallow-clones (or documents) rt64, RmlUi, lunasvg, N64ModernRuntime, concurrentqueue, ares.
 
+  After each fresh fetch of N64ModernRuntime, re-apply the Aero **librecomp cold boot** patches (optional
+  GameEntry DMA base, IPL $sp in init, etc.) described in Docs/Debugging.md — Host — librecomp cold boot;
+  src/host/aero_recomp_host.cpp assumes GameEntry.initial_rom_copy_ram_address exists.
+
 - CMake option AERO_WITH_ENGINE (default ON when lib/rt64, lib/RmlUi, lib/lunasvg, lib/N64ModernRuntime,
   and lib/concurrentqueue exist): see config/cmake/AeroEngine.cmake — RT64_STATIC, lunasvg, RmlUi (FreeType
   fetch if needed, SVG plugin), rt64, N64ModernRuntime. Ares (lib/ares) is added as an include-only tree for
