@@ -6,10 +6,10 @@ Intended contents (upstream-shaped layout "B"):
 
 - Optional engine stack (Zelda64Recomp / Kirby64Recomp pattern): after cloning, run from repo root:
     powershell -File tools/scripts/fetch_aero_engine_deps.ps1
-  That script shallow-clones (or documents) rt64, RmlUi, lunasvg, N64ModernRuntime, concurrentqueue, ares.
-
-  After each fresh fetch of N64ModernRuntime, apply the Aero **librecomp cold boot** patch from the Aero repo root:
-  **`git -C lib/N64ModernRuntime apply ../../tools/patches/aero_librecomp_game_entry_boot.patch`**
+  That script shallow-clones (or documents) rt64, RmlUi, lunasvg, N64ModernRuntime, concurrentqueue, ares,
+  and applies **`tools/patches/aero_librecomp_game_entry_boot.patch`** to **`lib/N64ModernRuntime`** when it is not
+  already applied. If you update that subtree yourself (**`git -C lib/N64ModernRuntime pull`**), re-apply from the Aero
+  repo root: **`git -C lib/N64ModernRuntime apply ../../tools/patches/aero_librecomp_game_entry_boot.patch`**
   ( **`GameEntry::initial_rom_copy_ram_address`**, **`after_entrypoint`**, **`init()`** DMA base + IPL **`$sp`**, and
   **`wait_for_game_started`** — see Docs/Debugging.md — Host — librecomp cold boot). **`src/host/aero_recomp_host.cpp`**
   expects those fields. Optional trace: **`git -C lib/N64ModernRuntime apply ../../tools/patches/aero_librecomp_sp_trace.patch`**

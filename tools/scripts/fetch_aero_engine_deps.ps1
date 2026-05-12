@@ -36,6 +36,25 @@ $n64 = Join-Path $lib "N64ModernRuntime"
 if (Test-Path $n64) {
   Write-Host "Updating N64ModernRuntime submodules …"
   git -C $n64 submodule update --init --recursive
+
+  $bootPatch = Join-Path $root "tools/patches/aero_librecomp_game_entry_boot.patch"
+  if (Test-Path $bootPatch) {
+    git -C $n64 apply --reverse --check $bootPatch 2>$null
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "OK: Aero librecomp cold-boot patch already applied (N64ModernRuntime)."
+    }
+    else {
+      git -C $n64 apply --check $bootPatch 2>$null
+      if ($LASTEXITCODE -ne 0) {
+        throw "aero_librecomp_game_entry_boot.patch does not apply to lib/N64ModernRuntime. Update the patch or pin N64ModernRuntime (see lib/README.txt, Docs/Debugging.md)."
+      }
+      git -C $n64 apply $bootPatch
+      Write-Host "Applied tools/patches/aero_librecomp_game_entry_boot.patch to N64ModernRuntime."
+    }
+  }
+  else {
+    Write-Host "Warning: missing $bootPatch — skip cold-boot patch (see lib/README.txt)."
+  }
 }
 
 $luna = Join-Path $lib "lunasvg"

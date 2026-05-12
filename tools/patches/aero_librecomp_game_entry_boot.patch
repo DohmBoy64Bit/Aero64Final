@@ -89,3 +89,14 @@ index ea17675..4c91122 100644
                  } catch (ultramodern::thread_terminated& terminated) {
  
                  }
+@@ -701,7 +710,10 @@ bool wait_for_game_started(uint8_t* rdram, recomp_context* context) {
+         case GameStatus::Quit:
+             return true;
+ 
+         case GameStatus::None:
+             return true;
++
++        default:
++            return false;
+     }
+ }

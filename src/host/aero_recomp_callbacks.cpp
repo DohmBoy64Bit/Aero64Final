@@ -140,15 +140,32 @@ static std::string aero_get_game_thread_name(const OSThread*) {
 	return "game";
 }
 
-static RspExitReason aero_rsp_unimplemented(uint8_t* rdram, uint32_t ucode_addr) {
+static RspExitReason aero_rsp_task_stub(uint8_t* rdram, uint32_t ucode_addr) {
 	(void)rdram;
 	(void)ucode_addr;
 	return RspExitReason::Broke;
 }
 
 static RspUcodeFunc* aero_get_rsp_microcode(const OSTask* task) {
-	(void)task;
-	return &aero_rsp_unimplemented;
+	if (task == nullptr) {
+		return &aero_rsp_task_stub;
+	}
+	if (std::getenv("AERO_TRACE_RSP") != nullptr) {
+		static std::atomic<unsigned> s_rsp_sel_logs{};
+		const unsigned i = s_rsp_sel_logs.fetch_add(1, std::memory_order_relaxed);
+		if (i < 128u) {
+			std::fprintf(stderr,
+			    "[Aero64][RSP] get_rsp_microcode #%u type=%u flags=0x%08X ucode=0x%08X ucode_data=0x%08X "
+			    "(stub ucode; M_GFXTASK is handled on the Gfx thread via RT64 send_dl, not recomp::rsp::run_task)\n",
+			    i,
+			    static_cast<unsigned>(task->t.type),
+			    static_cast<unsigned>(task->t.flags),
+			    static_cast<unsigned>(task->t.ucode),
+			    static_cast<unsigned>(task->t.ucode_data));
+		}
+	}
+	// Real RSP audio / jpeg / etc. requires project-specific RSPRecomp output wired here (see Docs/Workflow.md / Kirby injest).
+	return &aero_rsp_task_stub;
 }
 
 namespace aero {

@@ -364,6 +364,21 @@ void AeroRT64Context::send_dl(const OSTask* task) {
 		return;
 	}
 	aero_gfx_diag_on_send_dl();
+	if (std::getenv("AERO_TRACE_SP") != nullptr) {
+		static std::atomic<unsigned> s_trace_send_dl{};
+		const unsigned t = s_trace_send_dl.fetch_add(1, std::memory_order_relaxed);
+		if (t < 256u) {
+			std::fprintf(stderr,
+			    "[Aero64][Trace][Gfx/send_dl] #%u type=%u data_ptr=0x%08X ucode=0x%08X ucode_data=0x%08X data_size=0x%X "
+			    "(Gfx thread; RT64 loadUCodeGBI + processDisplayLists)\n",
+			    t,
+			    static_cast<unsigned>(task->t.type),
+			    static_cast<unsigned>(task->t.data_ptr),
+			    static_cast<unsigned>(task->t.ucode),
+			    static_cast<unsigned>(task->t.ucode_data),
+			    static_cast<unsigned>(task->t.data_size));
+		}
+	}
 	static std::atomic<unsigned> s_logged_gfx_tasks{};
 	const unsigned log_idx = s_logged_gfx_tasks.fetch_add(1, std::memory_order_relaxed);
 	if (log_idx < 24u) {
