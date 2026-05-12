@@ -1,0 +1,91 @@
+diff --git a/librecomp/include/librecomp/game.hpp b/librecomp/include/librecomp/game.hpp
+index 6df55ee..117bac2 100644
+--- a/librecomp/include/librecomp/game.hpp
++++ b/librecomp/include/librecomp/game.hpp
+@@ -3,6 +3,7 @@
+ 
+ #include <vector>
+ #include <filesystem>
++#include <optional>
+ 
+ #include "recomp.h"
+ #include "rsp.hpp"
+@@ -30,12 +31,20 @@ namespace recomp {
+         bool has_compressed_code = false;
+ 
+         gpr entrypoint_address;
++        /// If set, the first 1MB cart DMA and overlay load for that region use this KSEG0 address
++        /// instead of entrypoint_address (same sign-extension rules as entrypoint_address).
++        /// Use when the ELF entry PC is offset from the segment VMA (e.g. IPL copies to 0x80200000, entry at +0x50).
++        std::optional<gpr> initial_rom_copy_ram_address;
+         void (*entrypoint)(uint8_t* rdram, recomp_context* context) = nullptr;
+ 
+         void (*thread_create_callback)(uint8_t* rdram, recomp_context* context) = nullptr;
+ 
+         void (*on_init_callback)(uint8_t* rdram, recomp_context* context) = nullptr;
+ 
++        /// If set, called once after `entrypoint` returns (N64Recomp maps `jr $ra` to C `return`, so fall-through
++        /// ROM after the first `jr $ra` is not executed unless the host chains it here).
++        void (*after_entrypoint)(uint8_t* rdram, recomp_context* context) = nullptr;
++
+         std::u8string stored_filename() const;
+     };
+     struct Version {
+diff --git a/librecomp/src/recomp.cpp b/librecomp/src/recomp.cpp
+index ea17675..4c91122 100644
+--- a/librecomp/src/recomp.cpp
++++ b/librecomp/src/recomp.cpp
+@@ -478,15 +478,15 @@ void run_thread_function(uint8_t* rdram, uint64_t addr, uint64_t sp, uint64_t ar
+     func(rdram, &ctx);
+ }
+ 
+-void init(uint8_t* rdram, recomp_context* ctx, gpr entrypoint) {
++void init(uint8_t* rdram, recomp_context* ctx, gpr rom_copy_ram_address) {
+     // Initialize the overlays
+     recomp::overlays::init_overlays();
+ 
+     // Load overlays in the first 1MB
+-    load_overlays(0x1000, (int32_t)entrypoint, 1024 * 1024);
++    load_overlays(0x1000, (int32_t)rom_copy_ram_address, 1024 * 1024);
+ 
+     // Initial 1MB DMA (rom address 0x1000 = physical address 0x10001000)
+-    recomp::do_rom_read(rdram, entrypoint, 0x10001000, 0x100000);
++    recomp::do_rom_read(rdram, rom_copy_ram_address, 0x10001000, 0x100000);
+ 
+     // Read in any extra data from patches
+     recomp::overlays::read_patch_data(rdram, (gpr)recomp::patch_rdram_start);
+@@ -508,6 +508,14 @@ void init(uint8_t* rdram, recomp_context* ctx, gpr entrypoint) {
+     MEM_W(osRomBase, 0) = 0xB0000000u; // standard rom base
+     MEM_W(osResetType, 0) = 0; // cold reset
+     MEM_W(osMemSize, 0) = 8 * 1024 * 1024; // 8MB
++
++    // `wait_for_game_started` passes a zeroed `recomp_context`. Retail IPL3 leaves $sp near
++    // 0x80400000 (NTSC, 8MiB RDRAM) before jumping to the cart entry; the first instruction at
++    // Aero's entry is `addiu $sp, $sp, -0x20` (ROM 0x1050 = 0x27bdffe0 - see aero.us.splat.yaml).
++    // Same gpr sign-extension as N64Recomp's get_entrypoint_address / MEM_* in recomp.h.
++    if (ctx->r29 == 0) {
++        ctx->r29 = static_cast<gpr>(static_cast<int32_t>(0x80400000u));
++    }
+ }
+ 
+ std::u8string recomp::current_game_id() {
+@@ -649,7 +657,8 @@ bool wait_for_game_started(uint8_t* rdram, recomp_context* context) {
+                 auto find_it = game_roms.find(current_game.value());
+                 const recomp::GameEntry& game_entry = find_it->second;
+ 
+-                init(rdram, context, game_entry.entrypoint_address);
++                gpr rom_copy_ram_address = game_entry.initial_rom_copy_ram_address.value_or(game_entry.entrypoint_address);
++                init(rdram, context, rom_copy_ram_address);
+                 if (game_entry.on_init_callback) {
+                     game_entry.on_init_callback(rdram, context);
+                 }
+@@ -692,6 +701,9 @@ bool wait_for_game_started(uint8_t* rdram, recomp_context* context) {
+ 
+                 try {
+                     game_entry.entrypoint(rdram, context);
++                    if (game_entry.after_entrypoint != nullptr) {
++                        game_entry.after_entrypoint(rdram, context);
++                    }
+                 } catch (ultramodern::thread_terminated& terminated) {
+ 
+                 }

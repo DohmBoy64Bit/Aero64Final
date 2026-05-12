@@ -1,0 +1,32 @@
+diff --git a/librecomp/src/sp.cpp b/librecomp/src/sp.cpp
+--- a/librecomp/src/sp.cpp
++++ b/librecomp/src/sp.cpp
+@@ -1,4 +1,6 @@
++#include <atomic>
+ #include <cstdio>
++#include <cstdlib>
+ #include <fstream>
+ #include <ultramodern/ultramodern.hpp>
+ #include "recomp.h"
+@@ -12,6 +14,21 @@
+ extern "C" void osSpTaskStartGo_recomp(uint8_t* rdram, recomp_context* ctx) {
+     //printf("[sp] osSpTaskStartGo(0x%08X)\n", (uint32_t)ctx->r4);
+     OSTask* task = TO_PTR(OSTask, ctx->r4);
++    if (std::getenv("AERO_TRACE_SP") != nullptr) {
++        static std::atomic<unsigned> s_aero_trace_sp{};
++        const unsigned n = s_aero_trace_sp.fetch_add(1, std::memory_order_relaxed);
++        if (n < 256u) {
++            std::fprintf(stderr,
++                "[Aero64][Trace][SP/osSpTaskStartGo] #%u type=%u data_ptr=0x%08X ucode=0x%08X ucode_data=0x%08X "
++                "data_size=0x%X (recomp path -> submit_rsp_task)\n",
++                n,
++                static_cast<unsigned>(task->t.type),
++                static_cast<unsigned>(task->t.data_ptr),
++                static_cast<unsigned>(task->t.ucode),
++                static_cast<unsigned>(task->t.ucode_data),
++                static_cast<unsigned>(task->t.data_size));
++        }
++    }
+     if (task->t.type == M_GFXTASK) {
+         //printf("[sp] Gfx task: %08X\n", (uint32_t)ctx->r4);
+     } else if (task->t.type == M_AUDTASK) {

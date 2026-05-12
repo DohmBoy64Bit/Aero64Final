@@ -102,6 +102,18 @@ void destroy_game_window();
 
 static constexpr char8_t kGameId[] = u8"aero_us";
 
+// ROM 0x8020008C..0x8020009C (USA cart @ 0x80200000 segment): prologue + `addiu $a0, $sp, 0x20` delay slot
+// before `jal func_8022970C`. N64Recomp ends `recomp_entrypoint` at the first `jr $ra` (C `return`), so this
+// slice never runs unless the host invokes it here (lib/N64ModernRuntime/librecomp/src/recomp.cpp calls
+// `GameEntry::after_entrypoint` after `entrypoint`).
+static void aero_boot_after_entrypoint(uint8_t* rdram, recomp_context* ctx) {
+	ctx->r29 = ADD32(ctx->r29, -0x60);
+	MEM_W(0x14, ctx->r29) = ctx->r31;
+	MEM_W(0x60, ctx->r29) = ctx->r4;
+	ctx->r4 = ADD32(ctx->r29, 0x20);
+	func_8022970C(rdram, ctx);
+}
+
 void start_recomp_from_launcher() {
 	const std::filesystem::path cwd = std::filesystem::current_path();
 	const std::filesystem::path rom_path = cwd / kDefaultRomRelativePath;
@@ -146,6 +158,7 @@ void start_recomp_from_launcher() {
 	entry.entrypoint = &recomp_entrypoint;
 	entry.thread_create_callback = nullptr;
 	entry.on_init_callback = nullptr;
+	entry.after_entrypoint = &aero_boot_after_entrypoint;
 
 	if (!recomp::register_game(entry)) {
 		std::fprintf(stderr, "[Aero64] register_game failed\n");

@@ -44,7 +44,7 @@ When **`AERO_LINK_LIBRECOMP`** is on, **`include/aero_gfx_diag.h`** and **`src/h
 
 ## Host — librecomp cold boot (manual `GameEntry` + vendored runtime)
 
-`lib/N64ModernRuntime/` is fetched locally (see **`lib/README.txt`**) and is **gitignored**; the host still registers **`recomp::GameEntry`** in **`src/host/aero_recomp_host.cpp`**. Upstream N64ModernRuntime assumes Banjo-style invariants unless you patch **`librecomp`** after clone. For Aero, three facts line up with the ROM and **`aero.us.splat.yaml`**:
+`lib/N64ModernRuntime/` is fetched locally (see **`lib/README.txt`**); the parent repo **`.gitignore`** keeps that whole tree out of the Aero index because it is a nested clone. After each **`fetch_aero_engine_deps.ps1`** pull, apply **`tools/patches/aero_librecomp_game_entry_boot.patch`** (**`git -C lib/N64ModernRuntime apply ../../tools/patches/aero_librecomp_game_entry_boot.patch`** from repo root) so **`librecomp/include/librecomp/game.hpp`** and **`librecomp/src/recomp.cpp`** pick up the cold-boot hooks below. The host registers **`recomp::GameEntry`** in **`src/host/aero_recomp_host.cpp`**. Upstream N64ModernRuntime assumes Banjo-style invariants without that patch. For Aero, four facts line up with the ROM and **`aero.us.splat.yaml`**:
 
 1. **`gpr` / KSEG0 sign extension** — `MEM_W`, `MEM_B`, etc. in **`tools/source/N64Recomp/include/recomp.h`** map virtual addresses into the host RDRAM buffer via **`recomp_rdram_phys_offset`**: KSEG0 **`0x80000000..0x9FFFFFFF`** and KSEG1 **`0xA0000000..0xBFFFFFFF`** subtract the usual segment bases; **effective addresses whose low 32 bits are below `0x80000000`** are treated as **physical offsets** (IPL uses e.g. **`swc1 $f0, 0x40($a0)`** with **`$a0 == 0`** after **`andi $a0, $s0, 0xFFFF`** in the **`jal func_802000DC`** delay slot — see **`RecompiledFuncs/funcs_0.c`**). N64Recomp emits **`(gpr)(int32_t)0x........u`** in **`tools/source/N64Recomp/src/main.cpp`** (`get_entrypoint_address`). Any hand-filled **`entrypoint_address`** must use the same cast.
 
@@ -52,7 +52,7 @@ When **`AERO_LINK_LIBRECOMP`** is on, **`include/aero_gfx_diag.h`** and **`src/h
 
 3. **IPL3 stack pointer** — **`wait_for_game_started`** passes a **zero-filled** **`recomp_context`**. Retail IPL3 leaves **`$sp` ≈ 0x80400000`** (NTSC, 8 MiB) before the cart entry; the first instruction at **`0x80200050`** is **`addiu $sp, $sp, -0x20`** (ROM **`0x1050`**, word **`0x27bdffe0`**). The vendored patch sets **`ctx->r29`** in **`init()`** when it is still zero (same **`(gpr)(int32_t)0x80400000u`** pattern).
 
-Until those **`librecomp`** edits live in an upstream tag you vendor, re-apply them after **`fetch_aero_engine_deps.ps1`** or keep a local fork; **`src/host/aero_recomp_host.cpp`** in this repo already expects **`initial_rom_copy_ram_address`**.
+4. **`after_entrypoint` boot chain** — N64Recomp lowers **`jr $ra`** to a C **`return`**, so MIPS fall-through after **`0x80200084`** never runs. **`recomp::GameEntry::after_entrypoint`** (**`lib/N64ModernRuntime/librecomp/include/librecomp/game.hpp`**) is invoked from **`wait_for_game_started`** (**`lib/N64ModernRuntime/librecomp/src/recomp.cpp`**) immediately after **`entrypoint`**. **`src/host/aero_recomp_host.cpp`** sets it to **`aero_boot_after_entrypoint`**, which mirrors ROM **`0x8020008C..0x8020009C`** then calls **`func_8022970C`** (see **`RecompiledFuncs/funcs_0.c`**).
 
 ## Dual track: bootstrap (playable path) vs splatasm (correct ELF)
 
