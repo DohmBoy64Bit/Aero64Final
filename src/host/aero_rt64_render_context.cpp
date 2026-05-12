@@ -4,9 +4,12 @@
 #if defined(AERO_LINK_LIBRECOMP) && (AERO_LINK_LIBRECOMP)
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+
+#include "aero_gfx_diag.h"
 
 #include "plume/plume_render_interface_types.h"
 
@@ -46,6 +49,11 @@ static unsigned int VI_X_SCALE_REG = 0;
 static unsigned int VI_Y_SCALE_REG = 0;
 
 static unsigned char g_dummy_rom_header[0x40];
+
+// OSTask pointers are int32 KSEG addresses; RT64 expects byte offsets into the host RDRAM backing store.
+static uint32_t task_ptr_to_rdram_phys(PTR(u64) p) {
+	return static_cast<uint32_t>(p) & 0x1FFFFFFFu;
+}
 
 void dummy_check_interrupts() {}
 
@@ -305,6 +313,9 @@ AeroRT64Context::AeroRT64Context(uint8_t* rdram, ultramodern::renderer::WindowHa
 		return;
 	}
 
+	std::fprintf(stderr, "[Aero64] RT64 device OK; graphics API: %s\n",
+	    ultramodern::renderer::get_graphics_api_name(chosen_api).c_str());
+
 	app->setFullScreen(cur_config.wm_option == ultramodern::renderer::WindowMode::Fullscreen);
 
 	if (app->device->getCapabilities().sampleLocations) {
@@ -352,9 +363,27 @@ void AeroRT64Context::send_dl(const OSTask* task) {
 	if (!app) {
 		return;
 	}
+	aero_gfx_diag_on_send_dl();
+	static std::atomic<unsigned> s_logged_gfx_tasks{};
+	const unsigned log_idx = s_logged_gfx_tasks.fetch_add(1, std::memory_order_relaxed);
+	if (log_idx < 24u) {
+		std::fprintf(stderr,
+		    "[Aero64][Gfx] task#%u type=%u data_ptr=0x%08X ucode=0x%08X ucode_data=0x%08X data_size=0x%X\n",
+		    log_idx,
+		    static_cast<unsigned>(task->t.type),
+		    static_cast<unsigned>(task->t.data_ptr),
+		    static_cast<unsigned>(task->t.ucode),
+		    static_cast<unsigned>(task->t.ucode_data),
+		    static_cast<unsigned>(task->t.data_size));
+	}
+
+	const uint32_t ucode_phys = task_ptr_to_rdram_phys(task->t.ucode);
+	const uint32_t ucode_data_phys = task_ptr_to_rdram_phys(task->t.ucode_data);
+	const uint32_t dl_phys = task_ptr_to_rdram_phys(task->t.data_ptr);
+
 	app->state->rsp->reset();
-	app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
-	app->processDisplayLists(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF, 0, true);
+	app->interpreter->loadUCodeGBI(ucode_phys, ucode_data_phys, true);
+	app->processDisplayLists(app->core.RDRAM, dl_phys, 0, true);
 }
 
 void AeroRT64Context::update_screen() {

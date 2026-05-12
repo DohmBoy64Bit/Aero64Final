@@ -1,6 +1,7 @@
 # Regenerate RecompiledFuncs when Windows N64Recomp crashes on splatasm.elf (Docs/Debugging.md).
-# Run from config/: N64Recomp.exe aero.us.regen.toml
-# Canonical config for real recomp: aero.us.toml (splatasm.elf, no stubs).
+# Run from config/: ..\tools\N64Recomp.exe aero.us.regen.toml
+# Requires bootstrap ELF: ..\build\us\aero.us.elf (bash tools/scripts/build_aero_us_elf.sh, default AERO_LINK_MODE=bootstrap).
+# Canonical config for full-game recomp: aero.us.toml (splatasm.elf).
 
 [input]
 entrypoint = 0x80200050
@@ -8,9 +9,23 @@ output_func_path = "../RecompiledFuncs"
 rom_file_path = "../roms/afa.n64.us.z64"
 elf_path = "../build/us/aero.us.elf"
 bss_section_suffix = "_bss"
+# Only the first boot window is recompiled here (keeps regen fast vs. whole-cart function_sizes).
+# Increase carefully; oversized blobs stress analysis (Docs/Workflow.md Track A).
 function_sizes = [
-    { name = "recomp_entrypoint", size = 0x7FEFB0 },
+    # End after first jr $ra delay at 0x80200088 (entry trampoline only); extending includes jal 0x8022970C
+    # and static extraction hits another bad jump table (N64Recomp stderr: 0x80254384 / 0x8022C110).
+    { name = "recomp_entrypoint", size = 0x3C },
+]
+
+# First jal target from the entry loop (ROM 0x80200060 -> 0x802000DC). Declaring it as a manual
+# function gives N64Recomp a non-zero word span so resolve_jal matches by name instead of emitting
+# a zero-width static (tools/source/N64Recomp/src/recompilation.cpp resolve_jal, main.cpp static pass).
+# Size 0x18: through delay slot after jr $ra at 0x802000EC (verified against roms/afa.n64.us.z64 bytes).
+manual_funcs = [
+    { name = "func_802000DC", section = ".main", vram = 0x802000DC, size = 0x18 },
 ]
 
 [patches]
-stubs = ["recomp_entrypoint"]
+# Intentionally no stubs: recomp_entrypoint must be analyzed so the entry loop runs real jal targets.
+# If this regen faults, fall back to splatasm + config/aero.us.toml (Docs/Workflow.md) or temporarily
+# re-add: stubs = ["recomp_entrypoint"] (accept empty static callees until symbols/ELF improve).

@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -18,6 +19,7 @@
 #include <Windows.h>
 #endif
 
+#include "aero_gfx_diag.h"
 #include "aero_rt64_context.h"
 
 #include "librecomp/game.hpp"
@@ -65,6 +67,10 @@ static bool aero_get_input(int controller_num, uint16_t* buttons, float* x, floa
 }
 
 static void aero_set_rumble(int, bool) {}
+
+static void aero_gfx_thread_init_hook() {
+	std::fprintf(stderr, "[Aero64] ultramodern gfx thread initialized (RT64); first M_GFXTASK lines follow as [Aero64][Gfx].\n");
+}
 
 static ultramodern::input::connected_device_info_t aero_get_connected_device_info(int controller_num) {
 	(void)controller_num;
@@ -153,11 +159,27 @@ void install_default_graphics_config() {
 	cfg.res_option = ultramodern::renderer::Resolution::Auto;
 	cfg.wm_option = ultramodern::renderer::WindowMode::Windowed;
 	cfg.hr_option = ultramodern::renderer::HUDRatioMode::Original;
+	// Auto → D3D12 on Windows can hit DXGI 0x887A0004 / WARP fallback on some AMD + Debug stacks (see user logs).
+	// Vulkan is the safer default here; override with AERO_GRAPHICS_API=auto|d3d12|vulkan (case-insensitive).
+#if defined(_WIN32)
+	cfg.api_option = ultramodern::renderer::GraphicsApi::Vulkan;
+	if (const char* api_env = std::getenv("AERO_GRAPHICS_API")) {
+		if (std::strcmp(api_env, "auto") == 0 || std::strcmp(api_env, "AUTO") == 0) {
+			cfg.api_option = ultramodern::renderer::GraphicsApi::Auto;
+		} else if (std::strcmp(api_env, "d3d12") == 0 || std::strcmp(api_env, "D3D12") == 0) {
+			cfg.api_option = ultramodern::renderer::GraphicsApi::D3D12;
+		} else if (std::strcmp(api_env, "vulkan") == 0 || std::strcmp(api_env, "VULKAN") == 0) {
+			cfg.api_option = ultramodern::renderer::GraphicsApi::Vulkan;
+		}
+	}
+#else
 	cfg.api_option = ultramodern::renderer::GraphicsApi::Auto;
+#endif
 	cfg.ar_option = ultramodern::renderer::AspectRatio::Original;
 	cfg.msaa_option = ultramodern::renderer::Antialiasing::None;
 	cfg.rr_option = ultramodern::renderer::RefreshRate::Display;
-	cfg.hpfb_option = ultramodern::renderer::HighPrecisionFramebuffer::Auto;
+	// Auto HDR/internal FP path can stress D3D12 on some setups; Off matches many upstream recomp defaults.
+	cfg.hpfb_option = ultramodern::renderer::HighPrecisionFramebuffer::Off;
 	cfg.rr_manual_value = 60;
 	cfg.ds_option = 1;
 	ultramodern::renderer::set_graphics_config(cfg);
@@ -209,8 +231,8 @@ recomp::Configuration build_recomp_configuration() {
 	};
 
 	cfg.events_callbacks = ultramodern::events::callbacks_t{
-		.vi_callback = nullptr,
-		.gfx_init_callback = nullptr,
+		.vi_callback = aero_gfx_diag_on_vi_tick,
+		.gfx_init_callback = aero_gfx_thread_init_hook,
 	};
 
 	cfg.error_handling_callbacks = ultramodern::error_handling::callbacks_t{

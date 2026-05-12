@@ -81,6 +81,7 @@ add_executable(Aero64Recompiled
 if(AERO_WITH_ENGINE)
   target_sources(Aero64Recompiled PRIVATE
     src/host/aero_engine_launcher.cpp
+    src/host/aero_gfx_diag.cpp
     src/host/aero_register_overlays.cpp
     src/host/aero_rt64_render_context.cpp
     src/host/aero_recomp_callbacks.cpp
