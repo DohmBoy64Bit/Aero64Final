@@ -63,6 +63,7 @@ target_include_directories(RecompiledFuncs PRIVATE
 
 if(AERO_WITH_ENGINE)
   target_include_directories(RecompiledFuncs PRIVATE
+    "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
     "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/ultramodern/include"
     "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/librecomp/include"
     "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include"
@@ -101,6 +102,7 @@ target_include_directories(Aero64Recompiled PRIVATE
 if(AERO_WITH_ENGINE)
   target_include_directories(Aero64Recompiled PRIVATE
     "${CMAKE_SOURCE_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/tools/source/N64Recomp/include"
     "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include"
     "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/thirdparty"
   )

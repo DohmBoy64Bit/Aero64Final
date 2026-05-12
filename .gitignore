@@ -18,9 +18,7 @@ cmake_install.cmake
 .vs/
 compile_commands.json
 
-# N64Recomp output (regenerated; keep empty tree via .gitkeep)
-RecompiledFuncs/*
-!RecompiledFuncs/.gitkeep
+# N64Recomp symbol-track output (optional; keep .gitkeep if folder empty)
 RecompiledFuncsSymbolsTrack/*
 !RecompiledFuncsSymbolsTrack/.gitkeep
 

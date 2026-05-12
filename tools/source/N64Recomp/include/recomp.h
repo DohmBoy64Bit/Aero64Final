@@ -92,24 +92,43 @@ typedef uint64_t gpr;
 #define SUB32(a, b) \
     ((gpr)(int32_t)((a) - (b)))
 
+/* Map MIPS virtual/physical address to byte offset into the host RDRAM buffer.
+ * - KSEG0 0x80000000..0x9FFFFFFF and KSEG1 0xA0000000..0xBFFFFFFF follow the usual N64 mirror.
+ * - Addresses with the low 32 bits below 0x80000000 are treated as physical (IPL / boot uses
+ *   e.g. swc1 $f0, 0x40($zero) after andi left $a0 == 0; subtracting 0x80000000 alone was wrong).
+ */
+static inline uintptr_t recomp_rdram_phys_offset(gpr vaddr_sum) {
+    const uint32_t a = (uint32_t)((vaddr_sum) & UINT64_C(0xFFFFFFFF));
+    if (a < 0x80000000u) {
+        return (uintptr_t)a;
+    }
+    if (a < 0xA0000000u) {
+        return (uintptr_t)(a - 0x80000000u);
+    }
+    if (a < 0xC0000000u) {
+        return (uintptr_t)(a - 0xA0000000u);
+    }
+    return (uintptr_t)((int64_t)(int32_t)a - (int64_t)(int32_t)0x80000000u);
+}
+
 #define MEM_W(offset, reg) \
-    (*(int32_t*)(rdram + ((((reg) + (offset))) - 0xFFFFFFFF80000000)))
+    (*(int32_t*)(rdram + recomp_rdram_phys_offset((reg) + (offset))))
 
 #define MEM_H(offset, reg) \
-    (*(int16_t*)(rdram + ((((reg) + (offset)) ^ 2) - 0xFFFFFFFF80000000)))
+    (*(int16_t*)(rdram + recomp_rdram_phys_offset(((reg) + (offset)) ^ 2)))
 
 #define MEM_B(offset, reg) \
-    (*(int8_t*)(rdram + ((((reg) + (offset)) ^ 3) - 0xFFFFFFFF80000000)))
+    (*(int8_t*)(rdram + recomp_rdram_phys_offset(((reg) + (offset)) ^ 3)))
 
 #define MEM_HU(offset, reg) \
-    (*(uint16_t*)(rdram + ((((reg) + (offset)) ^ 2) - 0xFFFFFFFF80000000)))
+    (*(uint16_t*)(rdram + recomp_rdram_phys_offset(((reg) + (offset)) ^ 2)))
 
 #define MEM_BU(offset, reg) \
-    (*(uint8_t*)(rdram + ((((reg) + (offset)) ^ 3) - 0xFFFFFFFF80000000)))
+    (*(uint8_t*)(rdram + recomp_rdram_phys_offset(((reg) + (offset)) ^ 3)))
 
 #define SD(val, offset, reg) { \
-    *(uint32_t*)(rdram + ((((reg) + (offset) + 4)) - 0xFFFFFFFF80000000)) = (uint32_t)((gpr)(val) >> 0); \
-    *(uint32_t*)(rdram + ((((reg) + (offset) + 0)) - 0xFFFFFFFF80000000)) = (uint32_t)((gpr)(val) >> 32); \
+    *(uint32_t*)(rdram + recomp_rdram_phys_offset((reg) + (offset) + 4)) = (uint32_t)((gpr)(val) >> 0); \
+    *(uint32_t*)(rdram + recomp_rdram_phys_offset((reg) + (offset) + 0)) = (uint32_t)((gpr)(val) >> 32); \
 }
 
 static inline uint64_t load_doubleword(uint8_t* rdram, gpr reg, gpr offset) {
