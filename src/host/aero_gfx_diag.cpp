@@ -34,14 +34,18 @@ void aero_gfx_diag_on_vi_tick() {
 		if (!verbose && !g_diag_suppressed_note_printed.exchange(true, std::memory_order_relaxed)) {
 			std::fprintf(stderr,
 			    "[Aero64][Diag] Further \"no send_dl\" lines suppressed (set AERO_GFX_DIAG_VERBOSE=1 for unlimited). "
-			    "If send_dl never appears, verify RecompiledFuncs boot bodies are not empty stubs (e.g. "
-			    "static_3_802000DC in funcs_0.c); empty stubs mean N64Recomp did not emit that code path.\n");
+			    "The cart entry slice in RecompiledFuncs/funcs_0.c ends at the first `jr $ra` (N64Recomp maps that to a "
+			    "C `return` — see tools/source/N64Recomp/src/recompilation.cpp `cpu_jr` + `emit_return`), so the `jal` at "
+			    "0x80200098 (`func_8022970C`) is not reached until librecomp chains MIPS `$ra` or the game thread runs "
+			    "further recompiled code. Low-address RDRAM stores from `func_802000DC` need `recomp_rdram_phys_offset` "
+			    "in tools/source/N64Recomp/include/recomp.h (Docs/Debugging.md — Host — librecomp cold boot). "
+			    "Empty `static_*` bodies are a separate N64Recomp/symbol-size issue (config/aero.us.toml `function_sizes`).\n");
 		}
 		return;
 	}
 	std::fprintf(stderr,
 	    "[Aero64][Diag] %" PRIu64 " VI ticks (~3s per line @ 60Hz); no send_dl yet (game has not queued M_GFXTASK / "
-	    "osSpTaskStartGo path). Bootstrap \"Game Start Thread\" exit is normal.\n",
+	    "osSpTaskStartGo path). \"Game Start Thread\" exit is normal for this bootstrap; RT64 is still running.\n",
 	    n);
 }
 
