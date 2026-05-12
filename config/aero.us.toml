@@ -17,6 +17,13 @@ elf_path = "../build/us/aero.us.splatasm.elf"
 # symbols_file_path = "../build/aero.us.syms.toml"
 bss_section_suffix = "_bss"
 
+# func_802000DC is glabeled in splatasm asm at 0x802000DC but often has st_size 0 in the ELF; N64Recomp
+# then emits a zero-width static for jal targets from recomp_entrypoint. Override the span in bytes
+# (0x18 = 6 words through jr $ra delay slot; USA ROM at ROM 0x1000 + 0xDC).
+function_sizes = [
+    { name = "func_802000DC", size = 0x18 },
+]
+
 # Splatasm ELF exports aero_boot_entry at 0x80200050 with a real .size (split/us/asm/game/rom_00001000.s
 # endlabel). Bootstrap single-blob regen still uses function_sizes in config/aero.us.regen.toml.
 
