@@ -6,7 +6,7 @@ Follow phase gates in **`Docs/SystemPrompt.md`**. This document is the ordered c
 
 - **Windows:** CMake 3.20+, MSVC toolset (VS 2022) or Clang-CL as you standardize later; `N64Recomp.exe` under `tools/` after build-from-source per `Docs/SystemPrompt.md` Tools section.
 - **WSL / Linux:** Python + **splat** (or splat64 per your install), **mips** binutils (`mips-linux-gnu-as` / `mips-linux-gnu-ld`) for VR4300 ELFs.
-- **Analysis:** Ghidra + x64dbg installs on paths you control.
+- **Analysis:** Ghidra + x64dbg installs on paths you control. For agent-assisted reverse engineering, see **`Docs/Debugging.md`** (“Assisted analysis”) — **`pefile`**, **`capstone`**, and when to ask for a **Ghidra** function check.
 
 ### N64Recomp (Windows) — done in-repo
 

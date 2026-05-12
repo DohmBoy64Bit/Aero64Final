@@ -2,6 +2,17 @@
 
 This project follows `Docs/SystemPrompt.md`: no guessed toolchain behavior, ROM-specific work in `game/` / patches, generated recomp output treated as read-only.
 
+## Assisted analysis (Cursor / automation + Ghidra)
+
+When debugging or validating binaries in this repo, automated help can use:
+
+- **Python `pefile`** — parse Windows **PE** images (sections, imports, exports, load config) for host executables and DLLs next to the build.
+- **Python `capstone`** — **MIPS III** (or configured ISA) disassembly of raw words from **`roms/*.z64`**, ELF slices, or N64Recomp-emitted C comments, to check prologues, **`jal`** targets, and jump-table **`lw`/`jr`** sequences against on-disk layout (see the ROM check later in this file).
+
+Those libraries are available in the environment used for agent-assisted work; prefer them over guessing instruction encodings.
+
+**Ghidra:** facts that depend on project-specific naming, overlays, structs, or cross-references may still require the **project owner** to open a function at a given **VMA** (or share a short listing). Contributors and agents should **ask for a Ghidra check** when a decision would otherwise be speculative — especially for jump-table bounds, **`func_` vs data**, and boot/scheduler flow.
+
 ## Track C — symbols + ROM (Banjo-style, no splat game ELF)
 
 N64Recomp **`symbols_file_path`** + **`rom_file_path`** only — see **`Docs/Workflow.md`** and **`config/aero.us.symbols_track.toml`**, **`AeroRecompSyms/`**. **`tools\N64Recomp.exe config\aero.us.symbols_track.toml`** writes **`RecompiledFuncsSymbolsTrack/`** (gitignored). Grow **`AeroRecompSyms/aero.us.syms.toml`** instead of fighting splat reloc noise when you want the upstream-shaped path.
