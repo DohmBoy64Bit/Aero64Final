@@ -13,7 +13,8 @@ Intended contents (upstream-shaped layout "B"):
   ( **`GameEntry::initial_rom_copy_ram_address`**, **`after_entrypoint`**, **`init()`** DMA base + IPL **`$sp`**, and
   **`wait_for_game_started`** — see Docs/Debugging.md — Host — librecomp cold boot). **`src/host/aero_recomp_host.cpp`**
   expects those fields. Optional trace: **`git -C lib/N64ModernRuntime apply ../../tools/patches/aero_librecomp_sp_trace.patch`**
-  for **`osSpTaskStartGo_recomp`** in **`librecomp/src/sp.cpp`** (Docs/Debugging.md Gfx / trace).
+  for **`osSpTaskStartGo_recomp`** in **`librecomp/src/sp.cpp`** (Docs/Debugging.md Gfx / trace). Recompiled output triage:
+  **`python tools/scripts/audit_recompiled_funcs.py`** (empty **`static_*`** heuristic).
 
 - CMake option AERO_WITH_ENGINE (default ON when lib/rt64, lib/RmlUi, lib/lunasvg, lib/N64ModernRuntime,
   and lib/concurrentqueue exist): see config/cmake/AeroEngine.cmake — RT64_STATIC, lunasvg, RmlUi (FreeType

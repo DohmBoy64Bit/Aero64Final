@@ -150,6 +150,16 @@ static RspUcodeFunc* aero_get_rsp_microcode(const OSTask* task) {
 	if (task == nullptr) {
 		return &aero_rsp_task_stub;
 	}
+	if (std::getenv("AERO_RSP_STUB_ONCE") != nullptr) {
+		static std::atomic<unsigned> s_stub_once{};
+		if (s_stub_once.fetch_add(1, std::memory_order_relaxed) == 0u) {
+			std::fprintf(stderr,
+			    "[Aero64][RSP] get_rsp_microcode uses stub microcode (no RSPRecomp wiring). "
+			    "M_GFXTASK is expected on the ultramodern Gfx thread -> RT64 send_dl, not recomp::rsp::run_task. "
+			    "First OSTask type=%u (see Docs/Debugging.md Gfx / VI diagnostics).\n",
+			    static_cast<unsigned>(task->t.type));
+		}
+	}
 	if (std::getenv("AERO_TRACE_RSP") != nullptr) {
 		static std::atomic<unsigned> s_rsp_sel_logs{};
 		const unsigned i = s_rsp_sel_logs.fetch_add(1, std::memory_order_relaxed);
