@@ -20,11 +20,20 @@ void aero_gfx_diag_on_send_dl() {
 
 void aero_gfx_diag_on_vi_tick() {
 	const uint64_t n = g_vi_ticks.fetch_add(1, std::memory_order_relaxed) + 1;
-	if (n % 180 != 0) {
-		return;
-	}
 	const unsigned sc = g_send_dl_calls.load(std::memory_order_relaxed);
 	if (sc != 0) {
+		return;
+	}
+	// One line on the first VI interrupt so stderr is not silent for ~3s: the 180-tick branch below is only
+	// **log throttling**, not a host sleep or cart “boot timer”. Emulation is already stepping; Gfx appears when
+	// the game queues M_GFXTASK (see Docs/Debugging.md — Gfx / VI diagnostics).
+	if (n == 1u) {
+		std::fprintf(stderr,
+		    "[Aero64][Diag] VI interrupt running; waiting for M_GFXTASK (first `send_dl`). "
+		    "If none yet, that is game/recomp progress — not a deliberate multi-second host delay.\n");
+		return;
+	}
+	if (n % 180 != 0) {
 		return;
 	}
 	const bool verbose = std::getenv("AERO_GFX_DIAG_VERBOSE") != nullptr;
@@ -44,8 +53,9 @@ void aero_gfx_diag_on_vi_tick() {
 		return;
 	}
 	std::fprintf(stderr,
-	    "[Aero64][Diag] %" PRIu64 " VI ticks (~3s per line @ 60Hz); no send_dl yet (game has not queued M_GFXTASK / "
-	    "osSpTaskStartGo path). \"Game Start Thread\" exit is normal for this bootstrap; RT64 is still running.\n",
+	    "[Aero64][Diag] %" PRIu64 " VI ticks — still no `send_dl` (no M_GFXTASK yet). "
+	    "This line repeats every 180 VI interrupts (~3s **logging** if VI ~60Hz); the host is not blocking the game thread for that interval. "
+	    "\"Game Start Thread\" exit is normal for this bootstrap; RT64 is still running.\n",
 	    n);
 }
 
