@@ -37,6 +37,8 @@ void func_802A1F00(uint8_t* rdram, recomp_context* ctx);
 void func_8024A8F0(uint8_t* rdram, recomp_context* ctx);
 void func_802000DC(uint8_t* rdram, recomp_context* ctx);
 void func_8022970C(uint8_t* rdram, recomp_context* ctx);
+void func_802000A0(uint8_t* rdram, recomp_context* ctx);
+void func_80228DE0(uint8_t* rdram, recomp_context* ctx);
 void static_3_80201448(uint8_t* rdram, recomp_context* ctx);
 void static_3_80201FB8(uint8_t* rdram, recomp_context* ctx);
 void static_3_8021ACB0(uint8_t* rdram, recomp_context* ctx);

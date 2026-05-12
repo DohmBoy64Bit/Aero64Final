@@ -22,6 +22,11 @@ bss_section_suffix = "_bss"
 # (0x18 = 6 words through jr $ra delay slot; USA ROM at ROM 0x1000 + 0xDC).
 function_sizes = [
     { name = "func_802000DC", size = 0x18 },
+    # Splatasm ELF st_size is often 0 for .main glabels; N64Recomp needs explicit spans (see Docs/Debugging.md).
+    # `func_802000A0`: ROM resume after `func_8022970C` (`jal` return @ 0x802000A0) through word before `func_802000DC` @ 0x802000DC => 0x3C bytes.
+    # `func_80228DE0`: first `jal` target inside that slice; next symbol @ 0x80228E14 => 0x34 bytes.
+    { name = "func_802000A0", size = 0x3C },
+    { name = "func_80228DE0", size = 0x34 },
 ]
 
 # Splatasm ELF exports aero_boot_entry at 0x80200050 with a real .size (split/us/asm/game/rom_00001000.s
@@ -29,4 +34,6 @@ function_sizes = [
 
 [patches]
 # spimdisasm sometimes emits FUNC glabels on data; N64Recomp can fault analyzing bogus opcodes.
-ignored = ["D_*", "func_80234ED0", "func_8023D7A0", "func_80248090", "func_8023CD40", "func_8029C46C"]
+# Wildcard `D_*` removed: N64Recomp errors if a wildcard matches no `functions_by_name` keys; re-add explicit
+# `D_…` symbol names when a future ELF needs them.
+ignored = ["func_80234ED0", "func_8023D7A0", "func_80248090", "func_8023CD40", "func_8029C46C"]

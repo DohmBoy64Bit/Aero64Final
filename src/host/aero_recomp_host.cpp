@@ -103,15 +103,17 @@ void destroy_game_window();
 
 static constexpr char8_t kGameId[] = u8"aero_us";
 
-// ROM 0x8020008C..0x8020009C (USA cart @ 0x80200000 segment): prologue + `addiu $a0, $sp, 0x20` delay slot
-// before `jal func_8022970C`. N64Recomp ends `recomp_entrypoint` at the first `jr $ra` (C `return`), so this
-// slice never runs unless the host invokes it here (lib/N64ModernRuntime/librecomp/src/recomp.cpp calls
-// `GameEntry::after_entrypoint` after `entrypoint`). Set `AERO_TRACE_BOOT=1` for stderr after `func_8022970C` returns.
+// ROM 0x8020008C.. (USA @ 0x80200000): prologue + `jal func_8022970C` / delay `addiu $a0, $sp, 0x20`, then fall-through
+// at 0x802000A0 (`func_802000A0` in splatasm ELF). N64Recomp ends `recomp_entrypoint` at the first `jr $ra`, so the host
+// chains here (`GameEntry::after_entrypoint`). `jal` sets `$ra` to the instruction after the delay slot => 0x802000A0.
+// Set `AERO_TRACE_BOOT=1` for stderr after `func_8022970C` / before `func_802000A0`.
 static void aero_boot_after_entrypoint(uint8_t* rdram, recomp_context* ctx) {
 	ctx->r29 = ADD32(ctx->r29, -0x60);
 	MEM_W(0x14, ctx->r29) = ctx->r31;
 	MEM_W(0x60, ctx->r29) = ctx->r4;
 	ctx->r4 = ADD32(ctx->r29, 0x20);
+	// MIPS `jal` return address (PC+8 of branch slot) — was unset so `$ra` read as 0 after `func_8022970C` (AERO_TRACE_BOOT).
+	ctx->r31 = static_cast<gpr>(static_cast<int32_t>(0x802000A0u));
 	func_8022970C(rdram, ctx);
 	if (std::getenv("AERO_TRACE_BOOT") != nullptr) {
 		std::fprintf(stderr,
@@ -120,6 +122,7 @@ static void aero_boot_after_entrypoint(uint8_t* rdram, recomp_context* ctx) {
 		    static_cast<unsigned>(static_cast<uint32_t>(ctx->r31)),
 		    static_cast<unsigned>(static_cast<uint32_t>(ctx->r4)));
 	}
+	func_802000A0(rdram, ctx);
 }
 
 void start_recomp_from_launcher() {
