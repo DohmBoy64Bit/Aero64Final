@@ -4,7 +4,9 @@ Static recompilation port of **Aero Fighters Assault (USA)** using [N64Recomp](h
 
 ## Layout
 
-Upstream-shaped tree (see `Docs/SystemPrompt.md` and `Docs/Architecture.md`): `src/main`, `src/game`, `lib/` (submodules), `config/`, `patches/`, `RecompiledFuncs/` (generated), `roms/` (your dump).
+**Primary strategy:** Zelda64Recomp-style **engine + game** layout (`lib/`, `patches/`, `assets/`, RT64, N64ModernRuntime) with Kirby64Recomp-style **host glue** (`src/host/aero_rt64_render_context.cpp`, SDL/CMake patterns — see `Docs/RepoInjests/`). N64Recomp output lives in `RecompiledFuncs/` (or `RecompiledFuncsSymbolsTrack/` if you use the symbols-track config).
+
+Upstream-shaped tree (see `Docs/SystemPrompt.md` and `Docs/Architecture.md`): `src/main`, `src/host`, `lib/` (fetch via `tools/scripts/fetch_aero_engine_deps.ps1`), `config/`, `patches/`, `RecompiledFuncs/` (generated), `roms/` (your dump).
 
 ## Splat (Phase 3 bootstrap)
 
@@ -16,14 +18,17 @@ Upstream-shaped tree (see `Docs/SystemPrompt.md` and `Docs/Architecture.md`): `s
 
 - `tools/N64Recomp.exe` and `tools/RSPRecomp.exe` — built from [N64Recomp](https://github.com/N64Recomp/N64Recomp) per `tools/source/N64Recomp/README.md` (see `tools/PINNED_VERSIONS.txt`). Rebuild: `powershell -File tools/scripts/build_n64recomp.ps1`.
 
-## Build (bootstrap)
+## Build (Zelda / Kirby path — with engine)
 
-Requires CMake 3.20+, a C++20 compiler, and Visual Studio 2022 (or Ninja + MSVC) on Windows.
+After `fetch_aero_engine_deps.ps1`, configure with **`AERO_WITH_ENGINE=ON`** (default **ON** when `lib/rt64` and friends exist). Requires CMake 3.20+, C++20, Visual Studio 2022 (or Ninja + MSVC) on Windows.
 
 ```powershell
-cmake -S . -B out/build/msvc -G "Visual Studio 17 2022" -A x64
-cmake --build out/build/msvc --config Debug
+powershell -File tools/scripts/fetch_aero_engine_deps.ps1
+cmake --preset windows-msvc-debug
+cmake --build out/build/windows-msvc-debug --config Debug
 ```
+
+Minimal SDL-only build (no RT64 / librecomp): **`cmake -DAERO_WITH_ENGINE=OFF ...`** — see `Docs/Debugging.md`.
 
 Run `Aero64Recompiled.exe` from the **repository root** so future relative paths (`roms/`, `assets/`) match `Docs/Debugging.md`.
 

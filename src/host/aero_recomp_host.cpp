@@ -16,8 +16,40 @@
 
 #include "funcs.h"
 #include "librecomp/game.hpp"
+#include "librecomp/overlays.hpp"
 
 #include "ultramodern/ultramodern.hpp"
+
+extern "C" {
+// N64Recomp emits `D_802000F4` in RecompiledFuncs (funcs.h); boot chain calls that symbol.
+// `D_8020015C` is ignored in config/aero.us.toml (jump-table analysis); manual `func_D_8020015C` stays in aero_boot_chain_manual.c.
+void func_D_8020015C(uint8_t* rdram, recomp_context* ctx);
+void aero_overlay_stub_8023CE80(uint8_t* rdram, recomp_context* ctx);
+void aero_overlay_stub_80237E10(uint8_t* rdram, recomp_context* ctx);
+void aero_overlay_stub_8023F020(uint8_t* rdram, recomp_context* ctx);
+void aero_overlay_stub_80230F68(uint8_t* rdram, recomp_context* ctx);
+}
+
+static void aero_register_manual_overlay_stubs_once() {
+	static bool done = false;
+	if (done) {
+		return;
+	}
+	done = true;
+	// After `init_overlays` + `load_overlays` in librecomp `init` (see `lib/N64ModernRuntime/librecomp/src/recomp.cpp` /
+	// `overlays.cpp::init_overlays`). `after_entrypoint` runs on the game thread after that, so `func_map` is populated.
+	// Only fill missing VRAM slots: if N64Recomp + overlay tables already mapped these addresses, do not overwrite
+	// with stubs (`recomp::overlays::find_loaded_function` — added in vendored `overlays.cpp`).
+	auto reg_stub_if_missing = [](int32_t vram, recomp_func_t* stub) {
+		if (recomp::overlays::find_loaded_function(vram) == nullptr) {
+			recomp::overlays::add_loaded_function(vram, stub);
+		}
+	};
+	reg_stub_if_missing(static_cast<int32_t>(0x8023CE80u), aero_overlay_stub_8023CE80);
+	reg_stub_if_missing(static_cast<int32_t>(0x80237E10u), aero_overlay_stub_80237E10);
+	reg_stub_if_missing(static_cast<int32_t>(0x8023F020u), aero_overlay_stub_8023F020);
+	reg_stub_if_missing(static_cast<int32_t>(0x80230F68u), aero_overlay_stub_80230F68);
+}
 
 namespace {
 
@@ -108,6 +140,7 @@ static constexpr char8_t kGameId[] = u8"aero_us";
 // chains here (`GameEntry::after_entrypoint`). `jal` sets `$ra` to the instruction after the delay slot => 0x802000A0.
 // Set `AERO_TRACE_BOOT=1` for stderr after `func_8022970C` / before `func_802000A0`.
 static void aero_boot_after_entrypoint(uint8_t* rdram, recomp_context* ctx) {
+	aero_register_manual_overlay_stubs_once();
 	ctx->r29 = ADD32(ctx->r29, -0x60);
 	MEM_W(0x14, ctx->r29) = ctx->r31;
 	MEM_W(0x60, ctx->r29) = ctx->r4;
@@ -123,6 +156,25 @@ static void aero_boot_after_entrypoint(uint8_t* rdram, recomp_context* ctx) {
 		    static_cast<unsigned>(static_cast<uint32_t>(ctx->r4)));
 	}
 	func_802000A0(rdram, ctx);
+	// ROM falls through 0x802000DC.. (funcs_0.c `func_802000DC`): must not be called from inside C `func_802000A0`
+	// or `jr $ra` would incorrectly return into that wrapper; here it matches tail layout + IPL `jr $ra`.
+	func_802000DC(rdram, ctx);
+	// Recompiled `func_802000DC` ends in C `return`, not `jr $ra` to 0x802000F4; chain `D_802000F4`..`func_80200144`
+	// (N64Recomp emits `D_802000F4` in RecompiledFuncs; see `tools/source/N64Recomp/src/main.cpp` output + funcs.h).
+	D_802000F4(rdram, ctx);
+	// `D_8020015C` / `func_802001AC` (VMA 0x8020015C .. 0x80200300): jump table + `jal func_80231A24` tail
+	// (`split/us/asm/game/rom_00001000.s`; jtbl words `tools/scripts/verify_rom_jumptable.py` / `Docs/Debugging.md`).
+	// In the on-cart flow this returns to 0x80200304; set `$ra` accordingly so subsequent boot can be chained.
+	ctx->r31 = static_cast<gpr>(static_cast<int32_t>(0x80200304u));
+	func_D_8020015C(rdram, ctx);
+
+	// `D_80200304` saves/restores `$ra` from its stack frame; on hardware the `jal` caller’s link is typically
+	// PC+8 after the `jal` (e.g. 0x80200368 — nop sled before fall-through to `D_80200370`). Match that so any
+	// recompiled code that reads `$ra` mid-routine matches the cart (`roms/afa.n64.us.z64`, Capstone @ 0x80200304).
+	ctx->r31 = static_cast<gpr>(static_cast<int32_t>(0x80200368u));
+	D_80200304(rdram, ctx);
+	// ROM fall-through to `D_80200370` after `D_80200304` (`jr $ra` → 0x80200368`); see `Docs/Debugging.md` / `function_sizes`.
+	D_80200370(rdram, ctx);
 }
 
 void start_recomp_from_launcher() {

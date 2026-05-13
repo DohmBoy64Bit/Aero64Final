@@ -1,0 +1,11 @@
+# Minimal symbol file for N64Recomp `from_symbol_file` (Track C).
+# Section vram matches entry so main.cpp entrypoint rename sees func.rom == 0x1000.
+
+[[section]]
+name = ".main_entry"
+rom = 0x1000
+vram = 0x80200050
+size = 0x7FF000
+functions = [
+  { name = "aero_boot_entry", vram = 0x80200050, size = 0x200 },
+]

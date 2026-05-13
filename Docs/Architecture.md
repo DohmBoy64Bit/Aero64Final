@@ -4,7 +4,7 @@ Authoritative rules and phase gates: **`Docs/SystemPrompt.md`**. This file is th
 
 ## Physical layout (upstream-shaped “B”)
 
-Matches patterns in RepoInjests (e.g. Banjo: `src/main`, `src/game`, `lib/`, root `CMakeLists.txt` — see `Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt` directory tree at the top of that file).
+**Primary reference:** Zelda64Recomp + Kirby64Recomp injests (`Docs/RepoInjests/Zelda64/`, `Docs/RepoInjests/Kirby64/`) — `lib/`, root `CMakeLists.txt`, `src/` host glue. Banjo/Dino trees in RepoInjests are secondary comparisons for N64Recomp config and `add_library(RecompiledFuncs)` patterns.
 
 | Area | Path | Role |
 |------|------|------|

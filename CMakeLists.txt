@@ -45,7 +45,7 @@ if(AERO_WITH_ENGINE)
   aero_add_engine_subprojects()
 endif()
 
-# RecompiledFuncs — Banjo pattern (Docs/RepoInjests/BanjoKazooie/banjorecomp-banjorecomp-8a5edab282632443.txt).
+# RecompiledFuncs — Zelda64Recomp / Kirby64Recomp pattern: static lib of N64Recomp-generated C (see Docs/Workflow.md).
 add_library(RecompiledFuncs STATIC)
 file(GLOB AERO_FUNC_C_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/RecompiledFuncs/*.c")
 file(GLOB AERO_FUNC_CXX_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/RecompiledFuncs/*.cpp")

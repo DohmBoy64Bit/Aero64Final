@@ -8,7 +8,9 @@ Intended contents (upstream-shaped layout "B"):
     powershell -File tools/scripts/fetch_aero_engine_deps.ps1
   That script shallow-clones (or documents) rt64, RmlUi, lunasvg, N64ModernRuntime, concurrentqueue, ares,
   and applies **`tools/patches/aero_librecomp_game_entry_boot.patch`** to **`lib/N64ModernRuntime`** when it is not
-  already applied. If you update that subtree yourself (**`git -C lib/N64ModernRuntime pull`**), re-apply from the Aero
+  already applied. Aero also vendors **`recomp::overlays::find_loaded_function`** in **`librecomp/src/overlays.cpp`**
+  / **`overlays.hpp`** (boot-tail stub registration — see **`Docs/Debugging.md`**); re-apply or re-merge after
+  **`git -C lib/N64ModernRuntime pull`**. If you update that subtree yourself (**`git -C lib/N64ModernRuntime pull`**), re-apply from the Aero
   repo root: **`git -C lib/N64ModernRuntime apply ../../tools/patches/aero_librecomp_game_entry_boot.patch`**
   ( **`GameEntry::initial_rom_copy_ram_address`**, **`after_entrypoint`**, **`init()`** DMA base + IPL **`$sp`**, and
   **`wait_for_game_started`** — see Docs/Debugging.md — Host — librecomp cold boot). **`src/host/aero_recomp_host.cpp`**

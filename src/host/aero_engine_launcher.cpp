@@ -21,6 +21,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <system_error>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 #include "RmlUi_Backend.h"
 
@@ -37,7 +45,7 @@ static const char kLauncherRml[] = R"(
 <rml>
 <head>
 <style>
-	body { font-family: DejaVu Sans; font-size: 16px; color: #e8f0ff; background: #121826; }
+	body { font-family: DejaVu Sans, Segoe UI, sans-serif; font-size: 16px; color: #e8f0ff; background: #121826; }
 	#wrap { width: 88%; margin: 2em auto; }
 	h1 { font-size: 22px; margin-bottom: 0.5em; }
 	p { line-height: 1.45; }
@@ -85,6 +93,26 @@ std::filesystem::path BasePath() {
 	return std::filesystem::current_path();
 }
 
+#if defined(_WIN32)
+static std::filesystem::path WindowsExeDirectory() {
+	wchar_t buf[MAX_PATH];
+	const DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+	if (n == 0 || n >= MAX_PATH) {
+		return {};
+	}
+	return std::filesystem::path(buf).parent_path();
+}
+#endif
+
+static bool FontFileLooksUsable(const std::filesystem::path& p) {
+	std::error_code ec;
+	if (!std::filesystem::is_regular_file(p, ec) || ec) {
+		return false;
+	}
+	const auto sz = std::filesystem::file_size(p, ec);
+	return !ec && sz > 65536;
+}
+
 } // namespace
 
 int aero_run_engine_mode(int argc, char** argv) {
@@ -123,10 +151,31 @@ int aero_run_engine_mode(int argc, char** argv) {
 
 	Rml::Debugger::Initialise(context);
 
-	const std::filesystem::path font_path = BasePath() / "DejaVuSans.ttf";
-	if (!Rml::LoadFontFace(font_path.string(), true)) {
-		std::fprintf(stderr, "[Aero64] LoadFontFace failed for %s (copy DejaVuSans.ttf next to exe; CMake POST_BUILD should do this).\n",
-		    font_path.string().c_str());
+	const std::filesystem::path base = BasePath();
+	const std::filesystem::path candidates[] = {
+		base / "DejaVuSans.ttf",
+		base.parent_path() / "aero_engine_assets" / "DejaVuSans.ttf",
+		std::filesystem::current_path() / "DejaVuSans.ttf",
+		std::filesystem::current_path() / "aero_engine_assets" / "DejaVuSans.ttf",
+#if defined(_WIN32)
+		WindowsExeDirectory() / "DejaVuSans.ttf",
+#endif
+	};
+	bool font_ok = false;
+	for (const std::filesystem::path& font_path : candidates) {
+		if (!FontFileLooksUsable(font_path)) {
+			continue;
+		}
+		if (Rml::LoadFontFace(font_path.string(), true)) {
+			font_ok = true;
+			break;
+		}
+	}
+	if (!font_ok) {
+		std::fprintf(stderr,
+		    "[Aero64] LoadFontFace failed (no usable DejaVuSans.ttf). Re-run CMake so "
+		    "`config/cmake/AeroEngine.cmake` can fetch the SourceForge bundle, or place "
+		    "`assets/DejaVuSans.ttf` in the repo. Tried SDL base + cwd + exe dir (see aero_engine_launcher.cpp).\n");
 	}
 
 	if (Rml::ElementDocument* doc = context->LoadDocumentFromMemory(kLauncherRml, "aero://launcher")) {

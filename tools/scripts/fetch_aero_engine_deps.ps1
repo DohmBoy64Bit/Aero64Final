@@ -22,45 +22,64 @@ foreach ($r in $repos) {
     Write-Host "OK exists: $($r.name)"
     continue
   }
-  Write-Host "Cloning $($r.name) …"
+  Write-Host "Cloning $($r.name) ..."
   git clone --depth 1 $r.url $dest
 }
 
 $rt64 = Join-Path $lib "rt64"
 if (Test-Path $rt64) {
-  Write-Host "Updating rt64 submodules (dxc, plume, …) …"
+  Write-Host "Updating rt64 submodules (dxc, plume, ...) ..."
   git -C $rt64 submodule update --init --recursive
 }
 
 $n64 = Join-Path $lib "N64ModernRuntime"
 if (Test-Path $n64) {
-  Write-Host "Updating N64ModernRuntime submodules …"
+  Write-Host "Updating N64ModernRuntime submodules ..."
   git -C $n64 submodule update --init --recursive
 
   $bootPatch = Join-Path $root "tools/patches/aero_librecomp_game_entry_boot.patch"
   if (Test-Path $bootPatch) {
-    git -C $n64 apply --reverse --check $bootPatch 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    # git writes to stderr on failure; do not let that stop the script ($ErrorActionPreference = Stop).
+    $savedEap = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    git -C $n64 apply --reverse --check $bootPatch 2>$null | Out-Null
+    $alreadyPatched = ($LASTEXITCODE -eq 0)
+    if ($alreadyPatched) {
       Write-Host "OK: Aero librecomp cold-boot patch already applied (N64ModernRuntime)."
     }
     else {
-      git -C $n64 apply --check $bootPatch 2>$null
-      if ($LASTEXITCODE -ne 0) {
-        throw "aero_librecomp_game_entry_boot.patch does not apply to lib/N64ModernRuntime. Update the patch or pin N64ModernRuntime (see lib/README.txt, Docs/Debugging.md)."
+      git -C $n64 apply --check $bootPatch 2>$null | Out-Null
+      if ($LASTEXITCODE -eq 0) {
+        git -C $n64 apply $bootPatch 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+          $ErrorActionPreference = $savedEap
+          throw "git apply failed for aero_librecomp_game_entry_boot.patch"
+        }
+        Write-Host "Applied tools/patches/aero_librecomp_game_entry_boot.patch to N64ModernRuntime."
       }
-      git -C $n64 apply $bootPatch
-      Write-Host "Applied tools/patches/aero_librecomp_game_entry_boot.patch to N64ModernRuntime."
+      else {
+        $gameHpp = Join-Path $n64 "librecomp/include/librecomp/game.hpp"
+        $hooksPresent = (Test-Path $gameHpp) -and (Select-String -Path $gameHpp -Pattern "after_entrypoint" -Quiet)
+        if ($hooksPresent) {
+          Write-Host "OK: Aero cold-boot hooks already in N64ModernRuntime (patch not needed; see Docs/Debugging.md)."
+        }
+        else {
+          $ErrorActionPreference = $savedEap
+          throw "aero_librecomp_game_entry_boot.patch does not apply and hooks are missing. Update the patch or pin N64ModernRuntime (see lib/README.txt, Docs/Debugging.md)."
+        }
+      }
     }
+    $ErrorActionPreference = $savedEap
   }
   else {
-    Write-Host "Warning: missing $bootPatch — skip cold-boot patch (see lib/README.txt)."
+    Write-Host "Warning: missing $bootPatch - skip cold-boot patch (see lib/README.txt)."
   }
 }
 
 $luna = Join-Path $lib "lunasvg"
 if (Test-Path $luna) {
-  Write-Host "Updating lunasvg/plutovg submodule …"
+  Write-Host "Updating lunasvg/plutovg submodule ..."
   git -C $luna submodule update --init --recursive
 }
 
-Write-Host "Done. Configure with: cmake -S . -B out/build/msvc -G `"Visual Studio 17 2022`" -A x64 -DAERO_WITH_ENGINE=ON"
+Write-Host 'Done. Next: cmake --preset windows-msvc-debug'

@@ -122,17 +122,101 @@ function(aero_add_engine_subprojects)
 endfunction()
 
 function(aero_target_link_engine exe_target)
-  # Launcher font (OFL): DejaVu Sans — downloaded once into the build tree; copied next to the exe at build time.
-  set(_aero_font "${CMAKE_BINARY_DIR}/aero_engine_assets/DejaVuSans.ttf")
-  if(NOT EXISTS "${_aero_font}")
-    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/aero_engine_assets")
-    message(STATUS "Aero: downloading DejaVuSans.ttf (DejaVu fonts, OFL) for RmlUi…")
-    file(DOWNLOAD
-      "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
-      "${_aero_font}"
-      TLS_VERIFY ON
-      SHOW_PROGRESS
-    )
+  # Launcher font (OFL): DejaVu Sans. Prefer repo `assets/DejaVuSans.ttf` if present; else download the official
+  # SourceForge `dejavu-fonts-ttf-2.37.tar.bz2` and extract `ttf/DejaVuSans.ttf` (GitHub raw single-file URLs often
+  # yield 0-byte files while still creating the path, which broke `if(NOT EXISTS)` + POST_BUILD copy).
+  set(_aero_font_dir "${CMAKE_BINARY_DIR}/aero_engine_assets")
+  set(_aero_font_out "${_aero_font_dir}/DejaVuSans.ttf")
+  set(_aero_repo_font "${CMAKE_SOURCE_DIR}/assets/DejaVuSans.ttf")
+  set(_aero_font_src "")
+
+  set(_have_valid_repo_font FALSE)
+  if(EXISTS "${_aero_repo_font}")
+    file(SIZE "${_aero_repo_font}" _repo_sz)
+    if(_repo_sz GREATER 65536)
+      set(_have_valid_repo_font TRUE)
+      set(_aero_font_src "${_aero_repo_font}")
+    endif()
+  endif()
+
+  if(NOT _have_valid_repo_font)
+    file(MAKE_DIRECTORY "${_aero_font_dir}")
+    if(EXISTS "${_aero_font_out}")
+      file(SIZE "${_aero_font_out}" _out_sz)
+      if(_out_sz LESS 65536)
+        file(REMOVE "${_aero_font_out}")
+      else()
+        set(_aero_font_src "${_aero_font_out}")
+      endif()
+    endif()
+
+    if(_aero_font_src STREQUAL "")
+      set(_djv_extracted "${_aero_font_dir}/dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf")
+      set(_djv_tar "${_aero_font_dir}/dejavu-fonts-ttf-2.37.tar.bz2")
+      if(EXISTS "${_djv_tar}")
+        file(SIZE "${_djv_tar}" _tar_sz)
+        if(_tar_sz LESS 100000)
+          file(REMOVE "${_djv_tar}")
+        endif()
+      endif()
+      set(_need_extract FALSE)
+      if(NOT EXISTS "${_djv_extracted}")
+        set(_need_extract TRUE)
+      elseif(EXISTS "${_aero_font_out}")
+        file(SIZE "${_aero_font_out}" _out_chk)
+        if(_out_chk LESS 65536)
+          set(_need_extract TRUE)
+        endif()
+      endif()
+      if(_need_extract)
+        if(NOT EXISTS "${_djv_tar}")
+          message(STATUS "Aero: downloading DejaVu TTF bundle (SourceForge, OFL)…")
+          file(DOWNLOAD
+            "https://downloads.sourceforge.net/project/dejavu/dejavu/2.37/dejavu-fonts-ttf-2.37.tar.bz2"
+            "${_djv_tar}"
+            TLS_VERIFY ON
+            SHOW_PROGRESS
+            STATUS _dlst
+          )
+          list(GET _dlst 0 _dlrc)
+          if(NOT _dlrc EQUAL 0)
+            list(GET _dlst 1 _dlmsg)
+            message(WARNING "Aero: DejaVu tarball download failed (${_dlrc}): ${_dlmsg}")
+          endif()
+        endif()
+        if(EXISTS "${_djv_tar}")
+          file(SIZE "${_djv_tar}" _tar_sz2)
+          if(_tar_sz2 GREATER 100000)
+            file(ARCHIVE_EXTRACT INPUT "${_djv_tar}" DESTINATION "${_aero_font_dir}")
+          else()
+            message(WARNING "Aero: tarball at ${_djv_tar} is too small (${_tar_sz2} bytes); delete it and reconfigure.")
+          endif()
+        endif()
+      endif()
+      if(EXISTS "${_djv_extracted}")
+        file(SIZE "${_djv_extracted}" _ex_sz)
+        if(_ex_sz GREATER 65536)
+          if(NOT EXISTS "${_aero_font_out}")
+            file(COPY "${_djv_extracted}" DESTINATION "${_aero_font_dir}")
+          else()
+            file(SIZE "${_aero_font_out}" _out_chk2)
+            if(_out_chk2 LESS 65536)
+              file(COPY "${_djv_extracted}" DESTINATION "${_aero_font_dir}")
+            endif()
+          endif()
+        endif()
+      endif()
+      if(EXISTS "${_aero_font_out}")
+        file(SIZE "${_aero_font_out}" _final_sz)
+        if(_final_sz GREATER 65536)
+          set(_aero_font_src "${_aero_font_out}")
+        else()
+          message(WARNING "Aero: ${_aero_font_out} is missing or too small (${_final_sz} bytes); RmlUi font load may fail.")
+        endif()
+      else()
+        message(WARNING "Aero: DejaVuSans.ttf not produced under ${_aero_font_dir}; place assets/DejaVuSans.ttf or fix download.")
+      endif()
+    endif()
   endif()
 
   aero_engine_add_sdl2_image(${exe_target})
@@ -199,14 +283,16 @@ function(aero_target_link_engine exe_target)
     librecomp
   )
 
-  add_custom_command(
-    TARGET ${exe_target}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${_aero_font}"
-      $<TARGET_FILE_DIR:${exe_target}>
-    COMMENT "Copy DejaVuSans.ttf next to ${exe_target}"
-  )
+  if(NOT _aero_font_src STREQUAL "")
+    add_custom_command(
+      TARGET ${exe_target}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${_aero_font_src}"
+        "$<TARGET_FILE_DIR:${exe_target}>/DejaVuSans.ttf"
+      COMMENT "Copy DejaVuSans.ttf next to ${exe_target}"
+    )
+  endif()
 
   if(WIN32)
     target_link_libraries(${exe_target} PRIVATE opengl32)
